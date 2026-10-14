@@ -77,7 +77,7 @@ def save_rows(path, rows):
 
 
 def analyze(rows, agent, now):
-    output = []
+    output = {}
     today = now.date()
     midnight = datetime.combine(
         today + timedelta(days=1),
@@ -97,8 +97,9 @@ def analyze(rows, agent, now):
             key=lambda row: row["timestamp"],
         )
         if len(samples) < 2:
-            output.append(
-                f"{quota}: collecting a second {agent.title()} sample; no runout forecast yet."
+            output[quota] = (
+                f"{quota}: collecting a second {agent.title()} sample; "
+                "no runout forecast yet."
             )
             continue
 
@@ -111,7 +112,7 @@ def analyze(rows, agent, now):
                 last_increase = index
         samples = samples[last_increase:]
         if len(samples) < 2:
-            output.append(
+            output[quota] = (
                 f"{quota}: quota appears to have replenished; collecting a new trend."
             )
             continue
@@ -120,7 +121,7 @@ def analyze(rows, agent, now):
         last_time = datetime.fromisoformat(samples[-1]["timestamp"])
         elapsed_seconds = (last_time - first_time).total_seconds()
         if elapsed_seconds < MINIMUM_TREND_SECONDS:
-            output.append(
+            output[quota] = (
                 f"{quota}: trend samples span less than 5 minutes; no runout forecast yet."
             )
             continue
@@ -129,20 +130,20 @@ def analyze(rows, agent, now):
         last_percent = float(samples[-1]["remaining_percent"])
         consumed = first_percent - last_percent
         if consumed <= 0.1:
-            output.append(f"{quota}: no measurable quota decline today.")
+            output[quota] = f"{quota}: no measurable quota decline today."
             continue
 
         percent_per_hour = consumed / (elapsed_seconds / 3600)
         exhaustion = now + timedelta(hours=last_percent / percent_per_hour)
         rate = f"{percent_per_hour:.1f}%/hour"
         if exhaustion <= midnight:
-            output.append(
+            output[quota] = (
                 f"WARNING: {agent.title()} {quota} is declining at about {rate}; "
                 f"projected to run out around {exhaustion.astimezone().strftime('%H:%M %Z')}, "
                 "before local midnight."
             )
         else:
-            output.append(
+            output[quota] = (
                 f"{quota}: declining at about {rate}; no exhaustion projected before "
                 f"local midnight ({midnight.astimezone().strftime('%H:%M %Z')})."
             )
@@ -177,13 +178,17 @@ def main():
         }
         for quota, values in metrics.items()
     ]
+    forecasts = analyze(existing + rows, args.agent, now)
+    for row in rows:
+        row["forecast"] = forecasts[row["quota"]]
+        row["forecast_warning"] = forecasts[row["quota"]].startswith("WARNING:")
     save_rows(args.data_file, rows)
 
     print(snapshot)
     print(
         f"Recorded {args.agent.title()} quota sample in ignored {args.data_file.name}."
     )
-    for message in analyze(existing + rows, args.agent, now):
+    for message in forecasts.values():
         print(message)
     return 0
 

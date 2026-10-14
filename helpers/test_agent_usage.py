@@ -1,7 +1,9 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -46,7 +48,7 @@ class AgentUsageTests(unittest.TestCase):
             },
         ]
         result = analyze(rows, "copilot", now)
-        self.assertTrue(result[0].startswith("WARNING: Copilot chat"))
+        self.assertTrue(result["chat"].startswith("WARNING: Copilot chat"))
 
     def test_quota_replenishment_starts_a_new_trend(self):
         now = datetime(2026, 10, 14, 12, 40, tzinfo=timezone.utc)
@@ -77,7 +79,7 @@ class AgentUsageTests(unittest.TestCase):
             },
         ]
         result = analyze(rows, "copilot", now)
-        self.assertIn("40.0%/hour", result[0])
+        self.assertIn("40.0%/hour", result["chat"])
 
     def test_usage_log_is_private_and_round_trips(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -87,7 +89,8 @@ class AgentUsageTests(unittest.TestCase):
                 "agent": "copilot",
                 "quota": "chat",
                 "remaining_percent": 50,
-                "reset_at": None,
+                "forecast": "WARNING: Copilot chat is declining.",
+                "forecast_warning": True,
             }
             save_rows(path, [row])
             self.assertEqual(load_rows(path), [row])
@@ -100,6 +103,46 @@ class AgentUsageTests(unittest.TestCase):
             path.write_text("{invalid json\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Invalid usage sample"):
                 load_rows(path)
+
+    def test_forecast_warning_is_saved_in_local_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".agent-usage.jsonl"
+            now = datetime.now().astimezone()
+            rows = [
+                {
+                    "timestamp": (now - timedelta(minutes=20)).isoformat(),
+                    "agent": "copilot",
+                    "quota": "chat",
+                    "remaining_percent": 30,
+                },
+                {
+                    "timestamp": (now - timedelta(minutes=10)).isoformat(),
+                    "agent": "copilot",
+                    "quota": "chat",
+                    "remaining_percent": 20,
+                },
+            ]
+            save_rows(path, rows)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).with_name("track_agent_usage.py")),
+                    "--agent",
+                    "copilot",
+                    "--data-file",
+                    str(path),
+                ],
+                input="Copilot credits: AI credit quota — chat 10% remaining.",
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            latest_chat = [
+                row for row in load_rows(path) if row["quota"] == "chat"
+            ][-1]
+            self.assertTrue(latest_chat["forecast_warning"])
+            self.assertIn("WARNING:", latest_chat["forecast"])
+            self.assertIn("WARNING:", result.stdout)
 
 
 if __name__ == "__main__":

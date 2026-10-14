@@ -7,7 +7,7 @@ This public repository is the canonical source for the user's AI-agent instructi
 - `setup.sh` installs Python requirements and checks external runtime tools; avoid adding system packages or agent CLIs unless explicitly requested.
 - Keep the README's file map and setup instructions current.
 - Keep `.github/workflows/super-linter.yml` aligned with every language and executable/configuration format used in the repository. When adding one, enable its Super-Linter validator, add necessary linter configuration, update the README's lint coverage, and verify the new lint check.
-- At the end of every user query, each agent must record its own current quota through its existing status helper and `track_agent_usage.py`; include any tracker `WARNING` in both the final response and completion/status email. `.agent-usage.jsonl` stores private, local quota snapshots and must remain ignored; never stage or publish it.
+- At the end of every user query, each agent must record its own current quota through its existing status helper and `track_agent_usage.py`; retain the generated forecast and any warning in the local `.agent-usage.jsonl` report, and include warnings in both the final response and completion/status email. This data file must remain ignored and never be staged or published.
 
 ## Git changes
 

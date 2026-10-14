@@ -58,7 +58,7 @@ Apply these instructions to every Codex task unless a later user instruction exp
 
   `$HOME/code/.codex-tools/codex-credit-status.sh`
 
-- At the end of every user query, including questions that do not change files, obtain the current Codex status and pipe it to `$HOME/code/.codex-tools/track_agent_usage.py --agent codex` to record the snapshot and show the current-day trend. Include any `WARNING` emitted by the tracker in both the final response and completion/status email. The tracker must receive only this agent's own status output; do not query or record Copilot quota from Codex.
+- At the end of every user query, including questions that do not change files, obtain the current Codex status and pipe it to `$HOME/code/.codex-tools/track_agent_usage.py --agent codex` to record the snapshot and show the current-day trend. The tracker stores the generated forecast and any warning in the local `.agent-usage.jsonl` report. Include any `WARNING` in both the final response and completion/status email. The tracker must receive only this agent's own status output; do not query or record Copilot quota from Codex.
 
 - On Copilot, after checking SSH keys and immediately before sending the final response, run:
 
