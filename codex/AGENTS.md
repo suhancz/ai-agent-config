@@ -58,14 +58,14 @@ Apply these instructions to every Codex task unless a later user instruction exp
 
   `$HOME/code/.codex-tools/codex-credit-status.sh`
 
-- Pipe the current Codex status output to `$HOME/code/.codex-tools/track_agent_usage.py --agent codex` to record it in the ignored local usage log and show the current-day trend. Report any `WARNING` emitted by the tracker to the user. The tracker must receive only this agent's own status output; do not query or record Copilot quota from Codex.
+- At the end of every user query, including questions that do not change files, obtain the current Codex status and pipe it to `$HOME/code/.codex-tools/track_agent_usage.py --agent codex` to record the snapshot and show the current-day trend. Include any `WARNING` emitted by the tracker in both the final response and completion/status email. The tracker must receive only this agent's own status output; do not query or record Copilot quota from Codex.
 
 - On Copilot, after checking SSH keys and immediately before sending the final response, run:
 
   `$HOME/code/.codex-tools/copilot-credit-status.sh`
 
 - The Copilot helper uses the authenticated GitHub Copilot CLI SDK quota endpoint and emits only the concise quota status; it never prints credentials. If Copilot's helper fails or reports unauthenticated/no quota, append exactly: `Copilot credits: percentage and renewal unavailable.`
-- Each agent records its own quota snapshots in the ignored `.agent-usage.jsonl` file alongside the canonical repository checkout. Use the existing agent-specific quota helper; do not inspect credentials or collect another agent's quota.
+- Each agent records its own quota snapshot at the end of every user query in the ignored `.agent-usage.jsonl` file alongside the canonical repository checkout. Use the existing agent-specific quota helper; do not inspect credentials or collect another agent's quota.
 - For any agent surface, use only that agent's own credit-status helper. If its helper is missing, attempt to create an agent-owned helper using that agent's supported, authenticated quota interface. Do not inspect or expose credentials, call another agent's helper, or use unsupported/private interfaces. If a safe helper cannot be created or its status remains unavailable, report that limitation.
 - Append the current agent's exact one-line credit output as the final line of the response.
 - Do not inspect or expose authentication data to obtain usage information.
