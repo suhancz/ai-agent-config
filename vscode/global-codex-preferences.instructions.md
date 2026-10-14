@@ -13,6 +13,7 @@ Apply these instructions to every task unless a later user instruction explicitl
 - Use SSH for Git remote operations; do not switch to HTTPS.
 - Name new branches `ab/${branch_type}/${jira_ticket}-${summary}`. Allowed types are `feature`, `bugfix`, and `hotfix`; keep the summary brief and dash-separated.
 - Use the Jira ticket supplied by the user. Otherwise, check assigned Jira work for a relevant ticket; if the mapping is unclear, ask before creating the branch.
+- When updating an agent configuration that is symlinked into this repository, resolve the repository directory from the symlink target instead of assuming a checkout path. Read that repository's `AGENTS.md` and ignored `AGENTS.local.md` alongside these global instructions before editing; make the change in the repository source, then commit and push it using the applicable local and global Git requirements. Never publish ignored local instructions, credentials, or other sensitive data.
 
 ## Timestamps
 
