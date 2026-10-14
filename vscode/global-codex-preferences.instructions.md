@@ -21,6 +21,7 @@ Apply these instructions to every task unless a later user instruction explicitl
 ## Timestamps
 
 - Begin every user-facing commentary update and every final response with an accurate local timestamp formatted as `[YYYY-MM-DD HH:MM:SS TZ]`.
+- Timestamp every separately reported user-facing step in CLI and VS Code progress/final responses, and every material step in completion/status emails, using the actual local time. Do not imply an operation timestamp that was not captured; identify unavailable timestamps.
 - Use the machine's local timezone for all report timestamps and quota-reset times; do not report UTC/GMT unless the user explicitly asks for it.
 - Obtain the actual current time before reporting; do not estimate or invent timestamps.
 - In completion reports, include the query timestamp when the interface exposes it. If it does not, say that the exact transport timestamp is unavailable.
@@ -40,7 +41,7 @@ Apply these instructions to every task unless a later user instruction explicitl
 - Always refresh the actual local date/time and the current agent's credit/quota status immediately before each final response; do not ask the user whether to perform these checks.
 - Use the local report recipient configured outside the repository; never hard-code it in tracked files.
 - Use a concise briefing of the query as the subject.
-- Include the original query, detailed response, material subtask timestamps, changes, verification results, warnings, clickable links, available SSH-agent keys, and the Codex credit footer.
+- Include the original query, detailed response, timestamps for every material step, changes, verification results, warnings, clickable links, available SSH-agent key fingerprints, the answering agent's own quota usage/remaining and renewal/reset time, and any forecast warning projecting exhaustion before local midnight.
 - Generate a valid MIME message with `MIME-Version: 1.0`, `Content-Type: text/html; charset=UTF-8`, and `Content-Transfer-Encoding: 8bit`.
 - Prepare reports with canonical CRLF MIME, then use `python3.12 $HOME/code/.codex-tools/send-completion-report.py` to prepare, validate, and send them through `/usr/sbin/sendmail -v -i -t`. The send helper converts CRLF to LF for the local relay, which generates SMTP CRLF; never apply `curl --crlf`.
 - Configure the report recipient in `$HOME/.config/ai-agent-config/report-address` and configure the local relay in the operating system's mail-client configuration. Keep both values out of the repository. If the file is absent, the helper uses the current user's sSMTP sender mapping or configured `root` mailbox. The helper requires an explicit queued SMTP response.
@@ -52,6 +53,7 @@ Apply these instructions to every task unless a later user instruction explicitl
 
 ## Final footer
 
+- Include a footer in every user-facing CLI/VS Code response (including progress updates) and every completion/status email. Run `ssh-add -l` before each response/report and list fingerprints only (never key material). Identify the answering agent and report its own quota usage/remaining and renewal/reset time in local time, using its supported status helper. Include any tracker `WARNING` projecting exhaustion before local midnight; if no warning is forecast, say so, and if no reliable forecast is available, state that. Never expose authentication tokens or another agent's quota. For progress updates within a query, use the latest own-agent quota sample and identify its sample time; do not make extra quota queries just to populate a progress footer.
 - Immediately before every final response, run `ssh-add -l` and report the available SSH-agent key fingerprints. If no agent or keys are available, report that exact state.
 - Identify which AI agent is answering and always use only that agent's credit footer in both the final response and completion e-mail: use the Codex credit status below for Codex, and the corresponding Copilot credit status for Copilot. Do not report the other agent's balance.
 - On Codex, after checking SSH keys and immediately before sending the final response, run this authenticated, read-only command with escalated sandbox permission:

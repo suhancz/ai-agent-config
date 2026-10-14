@@ -8,6 +8,7 @@ This public repository is the canonical source for the user's AI-agent instructi
 - Keep the README's file map and setup instructions current.
 - Keep `.github/workflows/super-linter.yml` aligned with every language and executable/configuration format used in the repository. When adding one, enable its Super-Linter validator, add necessary linter configuration, update the README's lint coverage, and verify the new lint check.
 - At the end of every user query, each agent must record its own current quota through its existing status helper and `track_agent_usage.py`; retain the generated forecast and any warning in the local `.agent-usage.jsonl` report, and include warnings in both the final response and completion/status email. This data file must remain ignored and never be staged or published.
+- Timestamp every user-facing step in CLI and VS Code progress/final responses and every material step in completion/status emails, using the actual local time. Include a footer in every such response and email with available SSH-agent key fingerprints (never key material), the answering agent's own quota usage/remaining and renewal/reset time, and any forecast warning projecting exhaustion before local midnight. State when a forecast is unavailable; do not report another agent's quota or expose authentication tokens.
 
 ## Git changes
 
