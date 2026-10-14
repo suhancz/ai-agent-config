@@ -5,5 +5,5 @@ local-config/
 __pycache__/
 *.py[cod]
 
-# This root AGENTS.md contains machine/repository-specific Git rules and must not be published.
-/AGENTS.md
+# AGENTS.local.md holds local SSH, commit-identity, and branch-format preferences; they are machine/user-specific and must not be published.
+/AGENTS.local.md

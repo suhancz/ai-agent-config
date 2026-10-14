@@ -5,6 +5,8 @@ The repository's original instructions and helpers are licensed under MIT; refer
 
 ## Contents and live paths
 
+`AGENTS.md` contains repository-wide agent guidance. Machine- and user-specific Git preferences are kept separately in the ignored local `AGENTS.local.md`.
+
 | Tracked file | Live path |
 | --- | --- |
 | `codex/AGENTS.md` | `$HOME/.codex/AGENTS.md` |
