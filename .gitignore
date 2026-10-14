@@ -4,6 +4,7 @@
 local-config/
 __pycache__/
 *.py[cod]
+.ruff_cache/
 
 # AGENTS.local.md holds local SSH, commit-identity, and branch-format preferences; they are machine/user-specific and must not be published.
 /AGENTS.local.md

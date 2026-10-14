@@ -14,6 +14,7 @@ The repository's original instructions and helpers are licensed under MIT; refer
 | `vscode/global-codex-preferences.instructions.md` | `$HOME/.vscode-server/data/User/instructions/global-codex-preferences.instructions.md` |
 | `helpers/codex-credit-status.sh` | `$HOME/code/.codex-tools/codex-credit-status.sh` |
 | `helpers/copilot-credit-status.sh` | `$HOME/code/.codex-tools/copilot-credit-status.sh` |
+| `helpers/copilot-credit-status.mjs` | `$HOME/code/.codex-tools/copilot-credit-status.mjs` |
 | `helpers/send-completion-report.py` | `$HOME/code/.codex-tools/send-completion-report.py` |
 | `helpers/test_completion_report.py` | `$HOME/code/.codex-tools/test_completion_report.py` |
 
@@ -37,6 +38,10 @@ Run the report-helper tests with:
 ```sh
 python3.12 -m unittest discover -s helpers -p 'test_completion_report.py'
 ```
+
+## Continuous linting
+
+GitHub Actions runs Super-Linter across all repository files on pushes, pull requests, and manual workflow dispatches. It checks Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions workflows. When adding or changing a language or executable/configuration format, update `.github/workflows/super-linter.yml` to enable its validator and add any needed linter configuration; keep this list current with the repository contents.
 
 ## License
 
