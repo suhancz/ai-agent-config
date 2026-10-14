@@ -5,7 +5,7 @@ The repository's original instructions and helpers are licensed under MIT; refer
 
 ## Contents and live paths
 
-`AGENTS.md` contains repository-wide agent guidance. Machine- and user-specific Git preferences are kept separately in the ignored local `AGENTS.local.md`.
+`AGENTS.md` contains repository-wide agent guidance and tells agents to read the ignored `AGENTS.local.md` for this checkout's commit requirements. Global SSH and branch-naming preferences are in the machine's global agent instructions.
 
 | Tracked file | Live path |
 | --- | --- |

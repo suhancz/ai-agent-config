@@ -9,6 +9,12 @@ Apply these instructions to every Codex task unless a later user instruction exp
 - When the user gives a new or changed global preference in Copilot, Codex, or the VS Code profile, update all three files in the same task so future sessions in each surface keep following it. Preserve unrelated existing preferences.
 - If a preference cannot be carried out because the current agent surface lacks a required capability, follow the capability-boundary rule below and explain the specific limitation; do not silently drop the preference.
 
+## Git transport and branch naming
+
+- Use SSH for Git remote operations; do not switch to HTTPS.
+- Name new branches `ab/${branch_type}/${jira_ticket}-${summary}`. Allowed types are `feature`, `bugfix`, and `hotfix`; keep the summary brief and dash-separated.
+- Use the Jira ticket supplied by the user. Otherwise, check assigned Jira work for a relevant ticket; if the mapping is unclear, ask before creating the branch.
+
 ## Internal access checks and Jira context
 
 - At the start of every task, use `twg` to check the current user's assigned Jira work when the tool is available and authenticated. When a Jira key is supplied or relevant to the request, retrieve its native workitem details and verify current assignee and status; report access or coverage gaps instead of inferring.

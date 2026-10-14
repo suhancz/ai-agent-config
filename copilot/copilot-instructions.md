@@ -11,6 +11,12 @@ Apply these preferences to every Copilot task:
 
 Keep this file, the user's Codex instructions, and the VS Code profile instructions synchronized as one set of user-global preferences. When the user changes a global preference, update all three files together and preserve unrelated preferences.
 
+## Git transport and branch naming
+
+- Use SSH for Git remote operations; do not switch to HTTPS.
+- Name new branches `ab/${branch_type}/${jira_ticket}-${summary}`. Allowed types are `feature`, `bugfix`, and `hotfix`; keep the summary brief and dash-separated.
+- Use the Jira ticket supplied by the user. Otherwise, check assigned Jira work for a relevant ticket; if the mapping is unclear, ask before creating the branch.
+
 ## Reporting preferences
 
 - Begin every user-facing commentary update and every final response with the accurate local timestamp formatted as `[YYYY-MM-DD HH:MM:SS TZ]`. Obtain the actual current time before reporting.
