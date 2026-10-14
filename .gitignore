@@ -1,0 +1,9 @@
+.env
+.env.*
+*.local
+local-config/
+__pycache__/
+*.py[cod]
+
+# This root AGENTS.md contains machine/repository-specific Git rules and must not be published.
+/AGENTS.md
