@@ -98,5 +98,6 @@ link_file "$repo/vscode/global-codex-preferences.instructions.md" \
 link_file "$repo/helpers/codex-credit-status.sh" "$HOME/code/.codex-tools/codex-credit-status.sh"
 link_file "$repo/helpers/copilot-credit-status.sh" "$HOME/code/.codex-tools/copilot-credit-status.sh"
 link_file "$repo/helpers/copilot-credit-status.mjs" "$HOME/code/.codex-tools/copilot-credit-status.mjs"
+link_file "$repo/helpers/track_agent_usage.py" "$HOME/code/.codex-tools/track_agent_usage.py"
 link_file "$repo/helpers/send-completion-report.py" "$HOME/code/.codex-tools/send-completion-report.py"
 link_file "$repo/helpers/test_completion_report.py" "$HOME/code/.codex-tools/test_completion_report.py"

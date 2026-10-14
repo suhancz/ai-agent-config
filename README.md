@@ -15,6 +15,7 @@ The repository's original instructions and helpers are licensed under MIT; refer
 | `helpers/codex-credit-status.sh` | `$HOME/code/.codex-tools/codex-credit-status.sh` |
 | `helpers/copilot-credit-status.sh` | `$HOME/code/.codex-tools/copilot-credit-status.sh` |
 | `helpers/copilot-credit-status.mjs` | `$HOME/code/.codex-tools/copilot-credit-status.mjs` |
+| `helpers/track_agent_usage.py` | `$HOME/code/.codex-tools/track_agent_usage.py` |
 | `helpers/send-completion-report.py` | `$HOME/code/.codex-tools/send-completion-report.py` |
 | `helpers/test_completion_report.py` | `$HOME/code/.codex-tools/test_completion_report.py` |
 
@@ -31,12 +32,14 @@ Run the script from a checkout of this repository. It installs Python dependenci
 
 The report sender uses `/usr/sbin/sendmail` and reads its recipient from the local-only file `$HOME/.config/ai-agent-config/report-address`. Create that file with the desired address and restrict it to the user (`chmod 600`). If the file does not exist, the helper sends to the current user's outgoing address from `/etc/ssmtp/revaliases`, or to the configured `root` mailbox in `/etc/ssmtp/ssmtp.conf` if no user mapping exists. Configure the SMTP relay in the OS mail-client configuration. Neither value is stored in this repository. Set `AI_AGENT_REPORT_ADDRESS_FILE` to use a different local path.
 
+Each agent can record only its own authenticated quota snapshots by piping its existing status helper into `track_agent_usage.py --agent codex` or `--agent copilot`. The helper appends timestamped quota percentages to the ignored, user-only `.agent-usage.jsonl` file in this checkout and estimates depletion from same-day samples. A forecast requires at least two samples at least 10 minutes apart; it warns only when the observed linear decline projects exhaustion before the next quota reset or local midnight. It cannot predict usage changes or resets not represented in the snapshots.
+
 ## Tests
 
-Run the report-helper tests with:
+Run the helper tests with:
 
 ```sh
-python3.12 -m unittest discover -s helpers -p 'test_completion_report.py'
+python3.12 -m unittest discover -s helpers -p 'test_*.py'
 ```
 
 ## Continuous linting

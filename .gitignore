@@ -8,3 +8,6 @@ __pycache__/
 
 # AGENTS.local.md contains workstation-only Git identity and branch preferences, so it is excluded from upstream.
 /AGENTS.local.md
+
+# Quota snapshots reveal private per-agent usage history and must remain local.
+/.agent-usage.jsonl
