@@ -21,6 +21,8 @@ jobs:
       - name: Run Super-Linter
         uses: super-linter/super-linter@v9.0.0
         env:
+          MULTI_STATUS: false
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
           LINTER_RULES_PATH: .github/linters
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_BASH: true
