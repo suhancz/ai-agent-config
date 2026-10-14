@@ -11,12 +11,15 @@ Apply these preferences to every Copilot task:
 
 Keep this file, the user's Codex instructions, and the VS Code profile instructions synchronized as one set of user-global preferences. When the user changes a global preference, update all three files together and preserve unrelated preferences.
 
-## Git transport and branch naming
+## Git workflow
 
 - Use SSH for Git remote operations; do not switch to HTTPS.
-- Name new branches `ab/${branch_type}/${jira_ticket}-${summary}`. Allowed types are `feature`, `bugfix`, and `hotfix`; keep the summary brief and dash-separated.
-- Use the Jira ticket supplied by the user. Otherwise, check assigned Jira work for a relevant ticket; if the mapping is unclear, ask before creating the branch.
-- When updating an agent configuration that is symlinked into this repository, resolve the repository directory from the symlink target instead of assuming a checkout path. Read that repository's `AGENTS.md` and ignored `AGENTS.local.md` alongside these global instructions before editing; make the change in the repository source, then commit and push it using the applicable local and global Git requirements. Never publish ignored local instructions, credentials, or other sensitive data.
+- Before creating a branch or committing, resolve this instruction file's symlink target to find the canonical configuration repository and read its ignored `AGENTS.local.md` for workstation-only identity and branch preferences. Do not copy those preferences into tracked files.
+- Before committing, inspect the complete diff and scan tracked changes for credentials, private keys, personal/work recipient addresses, SMTP relay hostnames, and internal-only details. Keep machine-specific values outside tracked files.
+- Run relevant tests before publishing changes. Never commit user runtime state, local authentication/configuration files, or tool caches.
+- Keep task changes in one final commit. Before rewriting a remote branch, verify its expected state, preserve a recovery reference when useful, and use an explicit `--force-with-lease`.
+- For pull requests, use one final commit and write a concise reviewer-focused overview covering the problem, resulting behavior, validation, and limitations.
+- When updating an agent configuration symlinked into this repository, resolve the repository from the symlink target, read its `AGENTS.md` and ignored `AGENTS.local.md` alongside these global instructions, edit the canonical source, then commit and push the change. Never publish ignored local instructions or sensitive data.
 
 ## Reporting preferences
 

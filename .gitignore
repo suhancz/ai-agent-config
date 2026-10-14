@@ -6,5 +6,5 @@ __pycache__/
 *.py[cod]
 .ruff_cache/
 
-# AGENTS.local.md contains this checkout's commit identity and workflow, so it is excluded from upstream.
+# AGENTS.local.md contains workstation-only Git identity and branch preferences, so it is excluded from upstream.
 /AGENTS.local.md
