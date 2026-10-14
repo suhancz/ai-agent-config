@@ -10,38 +10,20 @@ import re
 import sys
 
 DATA_FILE = Path(__file__).resolve().parents[1] / ".agent-usage.jsonl"
-MINIMUM_TREND_SECONDS = 600
+MINIMUM_TREND_SECONDS = 300
 METRICS = {
     "copilot": ("chat", "completions"),
     "codex": ("business individual limit", "individual limit", "5-hour", "weekly"),
 }
 
 
-def parse_reset(text, now):
-    match = re.search(
-        r"\b(?:renews|resets)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})",
-        text,
-        re.IGNORECASE,
-    )
-    if not match:
-        return None
-    try:
-        reset_date = datetime.strptime(
-            f"{match.group(1)} {match.group(2)}", "%Y-%m-%d %H:%M"
-        )
-    except ValueError as error:
-        raise ValueError("Invalid quota reset time in snapshot") from error
-    local_timezone = now.tzinfo or now.astimezone().tzinfo
-    return reset_date.replace(tzinfo=local_timezone).isoformat()
-
-
-def parse_snapshot(agent, text, now):
+def parse_snapshot(agent, text):
     metrics = {}
     matched_ranges = []
     for label in sorted(METRICS[agent], key=len, reverse=True):
         pattern = re.compile(
             rf"(?<![\w-]){re.escape(label)}\s+(\d+(?:\.\d+)?)%\s+remaining"
-            rf"(?:\s*\(([^)]*)\))?",
+            rf"(?:\s*\([^)]*\))?",
             re.IGNORECASE,
         )
         match = pattern.search(text)
@@ -53,10 +35,8 @@ def parse_snapshot(agent, text, now):
         remaining = float(match.group(1))
         if not 0 <= remaining <= 100:
             raise ValueError(f"Invalid remaining percentage for {label}")
-        reset_text = match.group(2) or text
         metrics[label] = {
             "remaining_percent": remaining,
-            "reset_at": parse_reset(reset_text, now),
         }
         matched_ranges.append(match.span())
     return metrics
@@ -112,20 +92,8 @@ def analyze(rows, agent, now):
     ]
 
     for quota in sorted({row["quota"] for row in current_rows}):
-        latest_reset = next(
-            (
-                row.get("reset_at")
-                for row in reversed(current_rows)
-                if row["quota"] == quota
-            ),
-            None,
-        )
         samples = sorted(
-            (
-                row
-                for row in current_rows
-                if row["quota"] == quota and row.get("reset_at") == latest_reset
-            ),
+            (row for row in current_rows if row["quota"] == quota),
             key=lambda row: row["timestamp"],
         )
         if len(samples) < 2:
@@ -153,7 +121,7 @@ def analyze(rows, agent, now):
         elapsed_seconds = (last_time - first_time).total_seconds()
         if elapsed_seconds < MINIMUM_TREND_SECONDS:
             output.append(
-                f"{quota}: trend samples span less than 10 minutes; no runout forecast yet."
+                f"{quota}: trend samples span less than 5 minutes; no runout forecast yet."
             )
             continue
 
@@ -166,23 +134,17 @@ def analyze(rows, agent, now):
 
         percent_per_hour = consumed / (elapsed_seconds / 3600)
         exhaustion = now + timedelta(hours=last_percent / percent_per_hour)
-        reset_at = samples[-1].get("reset_at")
-        horizon = midnight
-        if reset_at:
-            reset_time = datetime.fromisoformat(reset_at)
-            if now < reset_time < horizon:
-                horizon = reset_time
         rate = f"{percent_per_hour:.1f}%/hour"
-        if exhaustion <= horizon:
+        if exhaustion <= midnight:
             output.append(
                 f"WARNING: {agent.title()} {quota} is declining at about {rate}; "
                 f"projected to run out around {exhaustion.astimezone().strftime('%H:%M %Z')}, "
-                "before the next reset or local midnight."
+                "before local midnight."
             )
         else:
             output.append(
                 f"{quota}: declining at about {rate}; no exhaustion projected before "
-                f"{horizon.astimezone().strftime('%H:%M %Z')}."
+                f"local midnight ({midnight.astimezone().strftime('%H:%M %Z')})."
             )
     return output
 
@@ -197,7 +159,7 @@ def main():
         parser.error("provide the current agent's quota status on stdin")
 
     now = datetime.now().astimezone()
-    metrics = parse_snapshot(args.agent, snapshot, now)
+    metrics = parse_snapshot(args.agent, snapshot)
     if not metrics:
         print(snapshot)
         print(
