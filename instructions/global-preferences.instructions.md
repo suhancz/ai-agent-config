@@ -16,6 +16,15 @@ At each task boundary, load the canonical root instructions, shared memory, this
 
 Repository policy does not itself configure account-wide settings, install loaders, update every existing container, or guarantee future instruction retrieval. If a platform cannot load these preferences globally, document the supported bootstrap or per-container loading requirement and report what remains unconfigured. Never claim universal enforcement or continuous synchronization without verification.
 
+## Explicit requirements must not be silently omitted
+
+- Every current and successor agent must retain and fulfill all applicable explicit user requirements unless the user explicitly requests their omission or supersedes them. Do not infer a waiver from silence, a short approval reply, task simplicity, convenience, or completion of the main action. Apply any explicit waiver only within its stated scope.
+- At task start, identify applicable current and standing requirements, including required reporting and validation. Before finalizing, check each requirement and distinguish completed, pending approval, blocked, failed, explicitly waived, and genuinely inapplicable items. Do not silently reclassify a requirement as optional or inapplicable to avoid it.
+- When a requirement cannot be fulfilled because of higher-priority instructions, mandatory permissions, missing capabilities, unavailable identity/configuration, or another concrete blocker, state the requirement, the specific blocker, and its pending or blocked status. Follow allowed discovery and recovery steps rather than assuming a capability is unavailable. Never claim completion or fabricate evidence.
+- A successful primary action, including a repository commit, does not complete outstanding reporting, verification, or other required steps. Follow REPORTING.md for completion and blocked-status HTML email, resolve the authorized identical sender and sole recipient, and present the exact draft through any mandatory platform approval gate. Standing reporting consent is not a reason to skip the gate; the gate is not a reason to omit the report.
+- Carry outstanding requirements forward across approval turns until resolved or explicitly waived. Do not ask discretionary permission again for an already requested requirement; request only the specific information or mandatory approval needed to execute it. Do not bypass platform constraints or send duplicate reports after uncertain submission.
+- Persist this no-omission rule through supported shared bootstrap instructions for all agents and successors. A saved policy is not proof that inaccessible clients have loaded or enforced it; report that boundary honestly.
+
 ## Shared operating preferences
 
 Whenever reading the live main instructions, also read the adjacent private .local-overrides.md loader and its listed instruction backups. Apply the precedence and privacy rules in shared memory. Report inaccessible host files or stale revisions rather than claiming compliance. Explicit current instructions remain scoped overrides; private backups must not be published or executed.
