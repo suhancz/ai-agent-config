@@ -4,6 +4,7 @@ Read this file whenever the user asks for something, together with the canonical
 
 ## Confirmed enduring preferences
 
+- Every agent prefixes every assistant-authored user-facing chat message and report with the user's local timestamp and timezone, records each request's supplied timestamp in its acknowledgment and reports, distinguishes request/receipt/response/operation/completion times, and labels unavailable clocks or precision instead of inventing them. The user's timezone takes precedence over the host default. This applies to all agents and successor surfaces; follow the root timestamp policy.
 - Every agent saves durable, useful, non-sensitive user memory in the canonical repository and retrieves the current shared memory for every user request.
 - Sensitive data must not be saved in the repository at all. This includes personal names, company and organization names, employer and client identities, postal and internet addresses, login names, account identifiers, passwords, credentials, tokens, keys, and all other personally identifiable information. Explicit exclusions take precedence over persistence.
 - Exclude information that identifies, singles out, locates, or can reasonably be linked to a person, directly or in combination with other details. This includes identifying employment, family, contact, location, device, account, and biographical details. A detail being public does not make it eligible for repository storage.
