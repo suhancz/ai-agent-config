@@ -16,6 +16,8 @@ Continuous background synchronization requires separately installed and verified
 
 ## Completion and status reports
 
+The user gives standing consent for Perplexity to send the required completion and status reports to the privately configured reporting address, using that same address as sender. Do not ask an additional discretionary permission question merely to establish user intent for these reports. This consent does not cover unrelated email, other recipients, or bypassing mandatory platform confirmation or approval gates. If a gate requires approval of an exact message, request it and wait; never claim that standing consent disables the gate. Keep the reporting address and delivery connector choice outside the repository.
+
 At task completion, prepare an HTML email. If execution is blocked or incomplete, prepare a status report explaining the blocker. Use a concise task briefing as the subject. Include:
 
 - The original query, with private values redacted when required by the destination.
