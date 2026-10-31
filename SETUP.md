@@ -1,5 +1,15 @@
 # Shared setup
 
+## Configuration loading for every agent
+
+For every request across all agent surfaces and containers, read the complete applicable configuration required by root AGENTS.md. Prefer the actual local filesystem when accessible: locate the canonical checkout through the managed instruction symlink or setup.sh, read the current shared policies, memory, and answering adapter, and load the applicable private instruction sidecar and its listed backups. Do not assume a fixed checkout path or overwrite dirty work.
+
+If the local filesystem, checkout, or required canonical file cannot be accessed, retrieve the missing canonical configuration from the configured Git repository through the existing authorized Git transport or repository connector. A local Git executable is not required when an authorized repository connector can retrieve the files. Resolve the current canonical branch/revision, read the actual applicable files and linked policies, and identify the revision used. Refresh at task boundaries and before final reporting as required by root policy. Preserve the existing latest-Git comparison and approval requirements before configuration writes even when reading locally.
+
+Remote retrieval cannot recover ignored private overrides, host configuration, or credentials. Preserve accessible private overrides and their documented precedence; explicitly report unavailable private files and any missing or stale canonical content. If neither local nor remote retrieval succeeds, report configuration loading as blocked instead of silently using memory or claiming compliance. Do not publish private paths, backups, addresses, or runtime state.
+
+Apply this local-first, Git-fallback loading rule to every current and successor agent through supported bootstrap instructions. Configure and test actual loading only where host/platform access and permissions exist; a repository policy alone does not install universal hooks, update all containers, or prove every-request enforcement.
+
 ## Requirements and modes
 
 Run setup from a checkout on the existing Linux/WSL environment with Bash, GNU readlink, Git, and Python 3.12/pip. This is not a native Windows installer. Resolve the checkout from setup.sh rather than assuming a home-directory path. Preserve the caller's working directory for task identity resolution.
