@@ -2,6 +2,16 @@
 
 Apply root [instructions](AGENTS.md), [mail routing](MAIL-ROUTING.md), [shared memory](memory/MEMORY.md), and the answering adapter's capability limits. These generic rules are shared; product-specific quota commands belong in adapter documentation.
 
+## Universal AI scope and standing reporting authorization
+
+These preferences apply to every AI assistant and agent the user uses, regardless of provider, product, coding capability, integration name, project, folder, workspace, conversation, or session, including future systems. Named adapters are implementation examples, not a restriction of scope.
+
+The user gives standing authorization to send required completion and blocked-status emails automatically whenever a supported authenticated delivery capability and platform permissions allow it. Do not ask an additional discretionary approval, recipient-choice, or confirmation question merely to send these required reports. This is the default behavior, not an opt-in offered at each task. Derive the recipient from the actual sender as specified below. This authorization does not cover unrelated emails or additional recipients.
+
+Mandatory platform or tool approval gates remain binding and are not disabled by this preference. Where exact-target/message approval is compulsory, use that gate with the full resolved draft and explain that it is a platform requirement, not a request to renew standing consent. Do not route around a gate or claim unattended delivery is enabled when it is not. Missing delivery capability must be reported as a specific blocker, not converted into a discretionary request for consent.
+
+Every AI must load the full applicable repository configuration from the local filesystem when accessible; if the local clone or required files cannot be read, retrieve the canonical sources through authorized Git access or a repository connector. Follow [the shared loading policy](SETUP.md#configuration-loading-for-every-agent), including revision checks, linked policies, private override boundaries, and explicit failure reporting. This fallback applies to all AI systems, not only the named agent adapters. Repository policy does not itself configure inaccessible applications or prove universal enforcement.
+
 ## Completion and status email
 
 At every completed task, send the required HTML completion report; for blocked/incomplete execution, send a status report when the delivery capability exists. Resolve the context and approved private reporting identity under mail routing. Sender and recipient must be identical. Do not silently substitute an account default or move work data to a personal route. Standing consent does not bypass mandatory exact-target/message approval. Present a pending report when a gate requires approval rather than silently omitting it.
