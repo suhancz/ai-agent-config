@@ -2,102 +2,103 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s [--backup-existing]\n' "$0"
+  printf 'Usage: bash %s [--backup-existing | --request]\n' "$0"
 }
-
 backup_existing=0
-if (($# > 1)); then
-  usage >&2
-  exit 2
-fi
-if (($# == 1)); then
-  if [[ "$1" == '--backup-existing' ]]; then
-    backup_existing=1
-  elif [[ "$1" == '--help' || "$1" == '-h' ]]; then
-    usage
-    exit 0
-  else
-    usage >&2
-    exit 2
-  fi
-fi
-
+request=0
+if (($# > 1)); then usage >&2; exit 2; fi
+case "${1:-}" in
+  '') ;;
+  --backup-existing) backup_existing=1 ;;
+  --request) request=1 ;;
+  --help|-h) usage; exit 0 ;;
+  *) usage >&2; exit 2 ;;
+esac
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+config="${XDG_CONFIG_HOME:-$HOME/.config}/ai-agent-config"
 
-if ! command -v python3.12 >/dev/null 2>&1; then
-  printf 'Python 3.12 is required to install the repository requirements.\n' >&2
-  exit 1
-fi
-if ! python3.12 -m pip --version >/dev/null 2>&1; then
-  printf 'Python 3.12 pip is required to install requirements.txt.\n' >&2
-  exit 1
-fi
-
-python3.12 -m pip install --user --disable-pip-version-check \
-  --requirement "$repo/requirements.txt"
+selected() {
+  local agent="$1"
+  if [[ -f "$config/agents" ]]; then
+    grep -Fxq -- "$agent" "$config/agents"
+    return
+  fi
+  case "$agent" in
+    codex) command -v codex >/dev/null 2>&1 && [[ -f "${CODEX_HOME:-$HOME/.codex}/config.toml" ]] ;;
+    copilot) command -v copilot >/dev/null 2>&1 && [[ -f "${COPILOT_HOME:-$HOME/.copilot}/config.json" ]] ;;
+    vscode) [[ -d "$HOME/.vscode-server/data/User" ]] ;;
+    *) return 1 ;;
+  esac
+}
 
 link_file() {
-  local source="$1"
-  local target="$2"
-  local existing backup stamp suffix
-
-  if [[ ! -f "$source" ]]; then
-    printf 'Missing source file: %s\n' "$source" >&2
-    return 1
-  fi
-
-  mkdir -p -- "$(dirname -- "$target")"
-
-  if [[ -L "$target" ]]; then
-    existing="$(readlink -f -- "$target" || true)"
-    if [[ "$existing" == "$source" ]]; then
-      printf 'Already linked: %s\n' "$target"
-      return 0
-    fi
-  fi
-
+  local source="$1" target="$2" backup suffix
+  [[ -f "$source" ]] || { printf 'Missing source: %s\n' "$source" >&2; return 1; }
+  if [[ -L "$target" && "$(readlink -f -- "$target" || true)" == "$source" ]]; then return; fi
   if [[ -e "$target" || -L "$target" ]]; then
     if ((backup_existing == 0)); then
-      printf 'Refusing to replace existing path: %s (use --backup-existing)\n' "$target" >&2
+      printf 'Refusing to replace %s; review it and use --backup-existing if appropriate.\n' "$target" >&2
       return 1
     fi
-
-    stamp="$(date '+%Y%m%d%H%M%S')"
-    backup="${target}.backup.${stamp}"
-    suffix=1
-    while [[ -e "$backup" || -L "$backup" ]]; do
-      backup="${target}.backup.${stamp}.${suffix}"
-      ((suffix += 1))
-    done
-    mv -- "$target" "$backup"
-    printf 'Backed up: %s\n' "$backup"
+    backup="${target}.backup.$(date '+%Y%m%d%H%M%S')"
+    suffix=0
+    while [[ -e "$backup.$suffix" || -L "$backup.$suffix" ]]; do ((suffix += 1)); done
+    mv -- "$target" "$backup.$suffix"
   fi
-
+  mkdir -p -- "$(dirname -- "$target")"
   ln -s -- "$source" "$target"
-  printf 'Linked: %s\n' "$target"
 }
 
-missing=()
-for command_name in jq awk date find sort cut tail readlink codex copilot node npm; do
-  if ! command -v "$command_name" >/dev/null 2>&1; then
-    missing+=("$command_name")
-  fi
+active=()
+for agent in codex copilot vscode perplexity pplx; do
+  if selected "$agent"; then active+=("$agent"); fi
 done
-if [[ ! -x /usr/sbin/sendmail ]]; then
-  missing+=("/usr/sbin/sendmail")
-fi
-if ((${#missing[@]})); then
-  printf 'Missing optional runtime dependencies (install with the appropriate OS/CLI package manager): %s\n' \
-    "$(IFS=', '; printf '%s' "${missing[*]}")" >&2
+if ((${#active[@]} == 0)); then
+  printf 'No configured agents detected; nothing changed.\n' >&2
+  exit 0
 fi
 
-link_file "$repo/codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
-link_file "$repo/copilot/copilot-instructions.md" "$HOME/.copilot/copilot-instructions.md"
-link_file "$repo/vscode/global-codex-preferences.instructions.md" \
-  "$HOME/.vscode-server/data/User/instructions/global-codex-preferences.instructions.md"
-link_file "$repo/helpers/codex-credit-status.sh" "$HOME/code/.codex-tools/codex-credit-status.sh"
-link_file "$repo/helpers/copilot-credit-status.sh" "$HOME/code/.codex-tools/copilot-credit-status.sh"
-link_file "$repo/helpers/copilot-credit-status.mjs" "$HOME/code/.codex-tools/copilot-credit-status.mjs"
-link_file "$repo/helpers/track_agent_usage.py" "$HOME/code/.codex-tools/track_agent_usage.py"
-link_file "$repo/helpers/send-completion-report.py" "$HOME/code/.codex-tools/send-completion-report.py"
-link_file "$repo/helpers/test_completion_report.py" "$HOME/code/.codex-tools/test_completion_report.py"
+if ((request == 0)); then
+  command -v python3.12 >/dev/null 2>&1 || { printf 'Python 3.12 required.\n' >&2; exit 1; }
+  python3.12 -m pip install --user --disable-pip-version-check --requirement "$repo/requirements.txt"
+fi
+
+for agent in "${active[@]}"; do
+  case "$agent" in
+    codex|copilot|pplx)
+      command -v "$agent" >/dev/null 2>&1 || {
+        printf 'Selected agent %s has no executable; skipping.\n' "$agent" >&2
+        continue
+      }
+      ;;
+  esac
+  case "$agent" in
+    codex)
+      link_file "$repo/codex/AGENTS.md" "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
+      link_file "$repo/helpers/codex-credit-status.sh" "$HOME/code/.codex-tools/codex-credit-status.sh"
+      ;;
+    copilot)
+      link_file "$repo/copilot/copilot-instructions.md" "${COPILOT_HOME:-$HOME/.copilot}/copilot-instructions.md"
+      link_file "$repo/helpers/copilot-credit-status.sh" "$HOME/code/.codex-tools/copilot-credit-status.sh"
+      link_file "$repo/helpers/copilot-credit-status.mjs" "$HOME/code/.codex-tools/copilot-credit-status.mjs"
+      ;;
+    vscode)
+      link_file "$repo/vscode/global-codex-preferences.instructions.md" "$HOME/.vscode-server/data/User/instructions/global-codex-preferences.instructions.md"
+      ;;
+    perplexity)
+      link_file "$repo/perplexity/AGENTS.md" "$config/perplexity/AGENTS.md"
+      ;;
+    pplx)
+      link_file "$repo/helpers/perplexity-search.sh" "$HOME/code/.codex-tools/perplexity-search.sh"
+      ;;
+  esac
+  if [[ "$agent" != pplx ]]; then
+    for helper in track_agent_usage.py send-completion-report.py test_completion_report.py; do
+      link_file "$repo/helpers/$helper" "$HOME/code/.codex-tools/$helper"
+    done
+  fi
+  if ((request == 0)) && [[ "$agent" == codex || "$agent" == copilot ]]; then
+    python3.12 "$repo/helpers/install-request-hooks.py" --agent "$agent" --repo "$repo"
+  fi
+done
+printf 'Setup complete; instructions must still be read by the answering agent.\n' >&2

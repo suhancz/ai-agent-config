@@ -1,51 +1,60 @@
 # AI agent instructions and helpers
 
-This public repository is the canonical source for user-owned AI instructions and helper scripts. It intentionally excludes credentials, private keys, personal/work reporting addresses, SMTP relay hostnames, internal runtime state, and third-party skill packages.
-The repository's original instructions and helpers are licensed under MIT; referenced tools and packages are not included and remain under their own licenses.
+This public repository is the canonical source for user-owned AI instructions and helper scripts. It excludes credentials, private keys, reporting addresses, relay hostnames, identifying information, internal runtime state, and third-party skill packages. Original content is MIT licensed; referenced tools retain their own licenses.
 
-## Contents and live paths
+## Instructions and managed files
 
-`AGENTS.md` contains the repository's shared development and commit guidance. The ignored local `AGENTS.local.md` contains workstation-only Git identity and branch preferences; keep those out of tracked files. Global agent instructions explain how to resolve and read it when applying machine preferences.
+Read root `AGENTS.md`, `memory/MEMORY.md`, and the applicable agent entry instructions for every request. Keep workstation-only preferences in ignored `AGENTS.local.md`, never in tracked files.
 
-| Tracked file | Live path |
+| Tracked file | Managed destination |
 | --- | --- |
-| `codex/AGENTS.md` | `$HOME/.codex/AGENTS.md` |
-| `copilot/copilot-instructions.md` | `$HOME/.copilot/copilot-instructions.md` |
+| `codex/AGENTS.md` | `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` |
+| `copilot/copilot-instructions.md` | `${COPILOT_HOME:-$HOME/.copilot}/copilot-instructions.md` |
 | `vscode/global-codex-preferences.instructions.md` | `$HOME/.vscode-server/data/User/instructions/global-codex-preferences.instructions.md` |
-| `helpers/codex-credit-status.sh` | `$HOME/code/.codex-tools/codex-credit-status.sh` |
-| `helpers/copilot-credit-status.sh` | `$HOME/code/.codex-tools/copilot-credit-status.sh` |
-| `helpers/copilot-credit-status.mjs` | `$HOME/code/.codex-tools/copilot-credit-status.mjs` |
-| `helpers/track_agent_usage.py` | `$HOME/code/.codex-tools/track_agent_usage.py` |
-| `helpers/send-completion-report.py` | `$HOME/code/.codex-tools/send-completion-report.py` |
-| `helpers/test_completion_report.py` | `$HOME/code/.codex-tools/test_completion_report.py` |
+| `perplexity/AGENTS.md` | Private configuration directory's `perplexity/AGENTS.md`; explicit bootstrap required |
+| `helpers/codex-credit-status.sh` | `$HOME/code/.codex-tools/`, selected Codex only |
+| `helpers/copilot-credit-status.sh` and `.mjs` | `$HOME/code/.codex-tools/`, selected Copilot only |
+| `helpers/track_agent_usage.py` | `$HOME/code/.codex-tools/`, selected non-search surfaces |
+| `helpers/send-completion-report.py` | `$HOME/code/.codex-tools/`, selected non-search surfaces |
+| `helpers/test_completion_report.py` | `$HOME/code/.codex-tools/`, selected non-search surfaces |
+| `helpers/perplexity-search.sh` | `$HOME/code/.codex-tools/`, explicitly selected `pplx` only |
+| `helpers/install-request-hooks.py` | Run during initial setup; merges private Codex/Copilot request hooks |
+| `perplexity/LOCAL-SETUP.md` | Host selection, bootstrap, capabilities, and validation instructions |
 
-Tool-managed runtime configuration and state (including authentication, application settings, logs, sessions, caches, and database files) do not belong here. Installed third-party skills are also excluded; keep their licenses and updates with their original distributions.
-Run the root `setup.sh` to link the managed files into their live locations.
+Tool-managed authentication, settings, logs, sessions, caches, databases, and third-party skills stay outside the repository.
 
-## Setup
+## Setup and every-request execution
 
 ```sh
-./setup.sh
+bash setup.sh
+bash setup.sh --request
 ```
 
-Run the script from a checkout of this repository. It installs Python dependencies from `requirements.txt` with Python 3.12 pip, then creates missing parent directories and links all managed files. The Python helpers currently use only the standard library. It checks for `jq`, common shell utilities, the Codex and Copilot CLIs, Node.js/npm, and `/usr/sbin/sendmail`; missing runtime tools are reported but not installed, since their installation and mail-relay configuration are managed by the OS or their vendors. It is safe to rerun when links already point into this checkout. If a live path already contains a file or a link to another location, the script stops rather than overwriting it. To preserve existing paths and install the managed links, run `./setup.sh --backup-existing`; it moves each conflicting path to a timestamped `.backup.*` path first.
+Initial setup installs `requirements.txt` through Python 3.12 pip, then links only selected surfaces and installs supported request hooks. Request mode avoids dependency installation and hook rewriting. No system package or agent CLI is installed. No configured agents means no changes.
 
-The report sender uses `/usr/sbin/sendmail` and reads its recipient from the local-only file `$HOME/.config/ai-agent-config/report-address`. Create that file with the desired address and restrict it to the user (`chmod 600`). If the file does not exist, the helper sends to the current user's outgoing address from `/etc/ssmtp/revaliases`, or to the configured `root` mailbox in `/etc/ssmtp/ssmtp.conf` if no user mapping exists. Configure the SMTP relay in the OS mail-client configuration. Neither value is stored in this repository. Set `AI_AGENT_REPORT_ADDRESS_FILE` to use a different local path.
+Selection uses a private allowlist when present, otherwise conservative existing configuration indicators. See [host selection and Perplexity integration](perplexity/LOCAL-SETUP.md) before running setup. Explicit selection is required for Perplexity and its search CLI. This is not an authentication test.
 
-At the end of every user query, each agent records only its own authenticated quota snapshot by piping its existing status helper into `track_agent_usage.py --agent codex` or `--agent copilot`. The helper appends timestamped quota percentages and the generated forecast (including any warning) to the ignored, user-only `.agent-usage.jsonl` local report. Include any warning in the final response and completion/status email. A forecast requires at least two samples at least 5 minutes apart; it warns when the observed linear decline projects exhaustion before local midnight. A quota replenishment detected as an increase starts a new trend. The estimate cannot predict future changes or unobserved resets.
+Links already pointing into this checkout are preserved. Conflicts stop setup instead of overwriting files. After reviewing existing files, `bash setup.sh --backup-existing` moves conflicting paths to timestamped backups. Existing hooks are merged, not discarded. Installation is not transactional; inspect failures before retrying.
 
-## Tests
+Supported local Codex and Copilot CLI per-prompt hooks run request setup before each user request, after initial installation and required hook trust. Other surfaces require a supported bootstrap; no universal Perplexity or VS Code shell hook is claimed. This Bash setup targets Linux/WSL, not native Windows. It neither fetches upstream nor installs continuous synchronization.
 
-Run the helper tests with:
+## Private reporting and quota tracking
+
+The report helper uses `/usr/sbin/sendmail`. Its local-only recipient file defaults to `$HOME/.config/ai-agent-config/report-address`; restrict it with `chmod 600`. Override the path with `AI_AGENT_REPORT_ADDRESS_FILE`. Without the file, the helper falls back to the current user's outgoing mapping in `/etc/ssmtp/revaliases`, then the configured `root` mailbox in `/etc/ssmtp/ssmtp.conf`. Configure relay settings outside this repository. Applicable agent instructions can impose stricter sender and recipient requirements.
+
+Each answering agent records only its own authenticated status through its status helper and `track_agent_usage.py --agent codex` or `--agent copilot`. The ignored, private `.agent-usage.jsonl` stores samples, forecasts, and warnings. Include warnings in the final response and completion/status email. Never publish this file or inspect credentials for quota sampling. Perplexity quota support is not invented.
+
+Forecasts require two samples at least five minutes apart. An observed replenishment starts a new trend. Linear depletion estimates warn about exhaustion before local midnight but cannot predict usage changes or unseen resets.
+
+## Tests and continuous linting
 
 ```sh
 python3.12 -m unittest discover -s helpers -p 'test_*.py'
+bash -n setup.sh helpers/perplexity-search.sh
 ```
 
-## Continuous linting
-
-GitHub Actions runs Super-Linter across all repository files on pushes, pull requests, and manual workflow dispatches. It checks Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions workflows. When adding or changing a language or executable/configuration format, update `.github/workflows/super-linter.yml` to enable its validator and add any needed linter configuration; keep this list current with the repository contents.
+Super-Linter runs on pushes, pull requests, and manual dispatches. Existing validators cover Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions. Extend workflow validators and configuration whenever adding a tracked language or format. Generated private hook JSON is not committed. Real agent hook execution and host authentication require separate on-host verification.
 
 ## License
 
-The original files in this repository are covered by the [MIT License](LICENSE). Third-party tools and packages referenced by the instructions are not included and retain their own licenses.
+Original files are covered by the [MIT License](LICENSE). Referenced third-party tools and packages retain their own licenses.
