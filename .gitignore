@@ -11,3 +11,8 @@ __pycache__/
 
 # Quota snapshots reveal private per-agent usage history and must remain local.
 /.agent-usage.jsonl
+
+# Setup backups and generated path-specific instruction loaders are private.
+*.backup.*
+*.local-overrides.md
+.backup-loader-*
