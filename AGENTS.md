@@ -2,6 +2,10 @@
 
 This public repository is the canonical source for the user's AI-agent instructions and helper scripts.
 
+## Shared mail routing and setup
+
+Every current and successor agent must read and apply MAIL-ROUTING.md at task start, during setup, and before sending email. Its identity-aware connector-first routing supersedes older SMTP-first wording in any agent entry instructions. All existing reporting, privacy, and mandatory platform permission requirements remain in force. Setup must include the per-agent configuration responsibilities in that policy; do not claim that surfacing instructions configures clients automatically.
+
 ## Mandatory instruction loading and preference persistence
 
 These shared rules apply equally to Codex, Copilot, VS Code agent surfaces, Perplexity, and future agents that use this repository.
