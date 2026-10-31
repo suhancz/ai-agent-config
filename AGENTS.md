@@ -2,6 +2,21 @@
 
 This public repository is the canonical source for the user's AI-agent instructions and helper scripts.
 
+## Mandatory instruction loading and preference persistence
+
+These shared rules apply equally to Codex, Copilot, VS Code agent surfaces, Perplexity, and future agents that use this repository.
+
+- At the start of every user task, read the latest accessible canonical root AGENTS.md and the applicable agent instructions from this repository. Refresh them before final reporting and before publishing instruction changes. Do not rely solely on conversation history, memory, or a previously cached copy. Report repository access failures and identify any stale revision used.
+- The synchronized instruction set includes codex/AGENTS.md, copilot/copilot-instructions.md, vscode/global-codex-preferences.instructions.md, and perplexity/AGENTS.md. Every agent must apply this root policy alongside its own entry instructions. When adding another agent surface, include it in this set and its documented loading mechanism.
+- Whenever the user requests an enduring preference, including wording such as always, never, from now on, or whenever, persist the non-sensitive preference in the canonical repository instructions as part of that task. Update all affected agent entry instructions together when needed to keep their behavior consistent. Preserve unrelated preferences and do not claim persistence until the repository write succeeds.
+- If a new preference conflicts with an existing one, identify the difference and the user's apparent reasoning. Ask for clarification or approval when the change of mind is ambiguous; do not silently replace an existing preference. An explicit unambiguous later instruction takes precedence within the user's instructions, subject to platform rules.
+- Explicit exclusions take precedence over persistence: do not commit a preference the user says to keep out of the repository. Keep addresses, account usernames, credentials, connector identities, private endpoints, and machine-specific values in private runtime configuration. Persist only the generic behavior when appropriate, without copying the private value. Do not leak it through commit messages, examples, fixtures, or reports published to the repository.
+- Before changing instructions, retrieve the current affected files, preserve unrelated edits, inspect the complete proposed changes, and follow applicable testing and Git workflow requirements. Respect mandatory platform confirmation gates; a standing preference does not authorize bypassing them. If approval, write access, or another capability is missing, report persistence as pending or blocked rather than completed.
+- Synchronization means keeping canonical policies and affected agent entry instructions consistent and refreshing accessible copies at task boundaries. Symlinks do not fetch upstream changes, and repository text does not install background synchronization or update running sessions. Do not claim all agents are continuously synchronized without a separately configured and verified mechanism. Never overwrite dirty local work to force synchronization.
+- Each agent must instruct successor agents and newly configured agent surfaces to follow the same canonical-loading, preference-persistence, privacy, and synchronization rules. If the current platform does not automatically load repository instructions, document and configure a supported bootstrap or Project instruction mechanism rather than claiming automatic loading.
+
+## Managed files and reporting
+
 - Edit and add managed files here; the user's live Codex, Copilot, VS Code, and helper paths are symlinks into this checkout.
 - Locate this checkout from the directory containing `setup.sh`, rather than assuming a fixed home-directory path.
 - `setup.sh` installs Python requirements and checks external runtime tools; avoid adding system packages or agent CLIs unless explicitly requested.
