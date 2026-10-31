@@ -108,7 +108,11 @@ for agent in "${active[@]}"; do
       bash "$repo/helpers/twg-setup.sh" "$mode"
       ;;
     vscode)
-      link_instruction "$repo/vscode/global-codex-preferences.instructions.md" "$HOME/.vscode-server/data/User/instructions/global-codex-preferences.instructions.md"
+      legacy="$HOME/.vscode-server/data/User/instructions/global-codex-preferences.instructions.md"
+      if [[ -L "$legacy" && "$(readlink -f -- "$legacy" || true)" == "$repo/vscode/global-codex-preferences.instructions.md" ]]; then
+        ln -sfn -- "$repo/instructions/global-preferences.instructions.md" "$legacy"
+      fi
+      link_instruction "$repo/instructions/global-preferences.instructions.md" "$legacy"
       ;;
     perplexity)
       link_instruction "$repo/perplexity/AGENTS.md" "$config/perplexity/AGENTS.md"
