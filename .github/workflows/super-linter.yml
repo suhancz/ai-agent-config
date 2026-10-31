@@ -9,13 +9,13 @@ on:
         description: Commit executable-bit fixes to main using the workflow token
         type: boolean
         required: false
-        default: false
+        default: true
 
 permissions:
   contents: read
 
-# Audit Git index modes, not the runner filesystem. Only the manual repair job writes.
-# Classification covers shell scripts, runnable helpers, and other shebang entry points.
+# Repository opt-in: repair modes on trusted main pushes and enabled manual runs.
+# Pull requests and other branches are read-only. No content changes are allowed.
 env:
   SCRIPT_MODE_CODE: |
     import os
@@ -56,7 +56,7 @@ env:
 jobs:
   script-modes:
     name: Check executable script modes
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.repair_script_modes) }}
+    if: ${{ !((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.repair_script_modes && github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -68,7 +68,7 @@ jobs:
 
   repair-script-modes:
     name: Repair executable script modes on main
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.repair_script_modes && github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.repair_script_modes)) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -76,7 +76,7 @@ jobs:
       group: repair-script-modes-main
       cancel-in-progress: false
     steps:
-      - name: Check out current main for explicitly requested repair
+      - name: Check out current main for enabled repair
         uses: actions/checkout@v6
         with:
           ref: main
