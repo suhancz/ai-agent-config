@@ -1,0 +1,10 @@
+# Latest Git configuration before every update
+
+This standing policy applies to all agents, all configuration changes, and successor integrations. Read it during setup, before editing configuration, and immediately before publishing changes. It strengthens the existing root requirement to retrieve current affected files; it does not replace other instructions.
+
+- Always compare proposed changes with the latest existing configuration in canonical Git before updating. Never publish a cached whole-file replacement or a draft based only on conversation history.
+- With a local shell, fetch the configured upstream through the existing SSH transport, record the current remote branch revision, and compare affected files, local changes, and the full proposed diff. Do not automatically merge, reset, or overwrite dirty work. Without a local Git shell, resolve the current canonical branch through the authorized repository connector and read affected files at that exact revision. Do not claim a connector retrieval ran git fetch locally.
+- Preserve unrelated concurrent changes. If another thread or agent changed the files, rebuild the patch against current content and rerun relevant validation and sensitive-data checks. Ask when competing changes cannot be reconciled safely; do not silently undo another thread.
+- Recheck the remote head and affected file identities immediately before writing, including after waiting for approval. If the head moved, inspect the new changes. If the approved target or content must change, request fresh platform approval for the revised exact write.
+- Prefer an atomic expected-head or compare-and-swap write when supported. A preflight read alone is not a race-free lock. If the tool cannot bind an expected head, disclose that limitation, minimize the read/write interval, and verify the resulting commit and affected files afterward. Never claim atomic concurrency protection without it.
+- If the latest revision cannot be retrieved, stop publication and report the blocker rather than overwriting from a stale copy. Respect branch protections, required approvals, private local instructions, and all existing privacy rules.

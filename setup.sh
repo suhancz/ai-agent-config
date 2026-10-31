@@ -21,6 +21,7 @@ config="${XDG_CONFIG_HOME:-$HOME/.config}/ai-agent-config"
 [[ -f "$repo/MAIL-ROUTING.md" ]] || { printf 'Missing shared mail policy.\n' >&2; exit 1; }
 printf 'Calling agent: apply this policy during setup; client configuration remains pending until verified.\n' >&2
 cat -- "$repo/MAIL-ROUTING.md" >&2
+cat -- "$repo/GIT-CONFIG-SAFETY.md" >&2
 
 selected() {
   local agent="$1"
@@ -31,6 +32,8 @@ selected() {
   case "$agent" in
     codex) command -v codex >/dev/null 2>&1 && [[ -f "${CODEX_HOME:-$HOME/.codex}/config.toml" ]] ;;
     copilot) command -v copilot >/dev/null 2>&1 && [[ -f "${COPILOT_HOME:-$HOME/.copilot}/config.json" ]] ;;
+    rovo) command -v rovo >/dev/null 2>&1 && [[ -f "$HOME/.rovo/config.yml" ]] ;;
+    twg) [[ -f "$config/twg-bin" ]] ;;
     vscode) [[ -d "$HOME/.vscode-server/data/User" ]] ;;
     *) return 1 ;;
   esac
@@ -55,7 +58,7 @@ link_file() {
 }
 
 active=()
-for agent in codex copilot vscode perplexity pplx; do
+for agent in codex copilot rovo twg vscode perplexity pplx; do
   if selected "$agent"; then active+=("$agent"); fi
 done
 if ((${#active[@]} == 0)); then
@@ -70,7 +73,7 @@ fi
 
 for agent in "${active[@]}"; do
   case "$agent" in
-    codex|copilot|pplx)
+    codex|copilot|rovo|pplx)
       command -v "$agent" >/dev/null 2>&1 || {
         printf 'Selected agent %s has no executable; skipping.\n' "$agent" >&2
         continue
@@ -87,6 +90,17 @@ for agent in "${active[@]}"; do
       link_file "$repo/helpers/copilot-credit-status.sh" "$HOME/code/.codex-tools/copilot-credit-status.sh"
       link_file "$repo/helpers/copilot-credit-status.mjs" "$HOME/code/.codex-tools/copilot-credit-status.mjs"
       ;;
+    rovo)
+      cat -- "$repo/ATLASSIAN.md" >&2
+      link_file "$repo/rovo/AGENTS.md" "$HOME/.rovo/AGENTS.md"
+      link_file "$repo/helpers/rovo-request.sh" "$HOME/code/.codex-tools/rovo-request.sh"
+      ;;
+    twg)
+      cat -- "$repo/ATLASSIAN.md" >&2
+      mode=request
+      if ((request == 0)); then mode=initial; fi
+      bash "$repo/helpers/twg-setup.sh" "$mode"
+      ;;
     vscode)
       link_file "$repo/vscode/global-codex-preferences.instructions.md" "$HOME/.vscode-server/data/User/instructions/global-codex-preferences.instructions.md"
       ;;
@@ -97,7 +111,7 @@ for agent in "${active[@]}"; do
       link_file "$repo/helpers/perplexity-search.sh" "$HOME/code/.codex-tools/perplexity-search.sh"
       ;;
   esac
-  if [[ "$agent" != pplx ]]; then
+  if [[ "$agent" != pplx && "$agent" != twg ]]; then
     for helper in track_agent_usage.py send-completion-report.py test_completion_report.py; do
       link_file "$repo/helpers/$helper" "$HOME/code/.codex-tools/$helper"
     done
@@ -106,4 +120,4 @@ for agent in "${active[@]}"; do
     python3.12 "$repo/helpers/install-request-hooks.py" --agent "$agent" --repo "$repo"
   fi
 done
-printf 'Setup links complete; the calling agent must apply MAIL-ROUTING.md and verify client configuration separately.\n' >&2
+printf 'Setup links complete; the calling agent must apply shared policies and verify client configuration separately.\n' >&2
