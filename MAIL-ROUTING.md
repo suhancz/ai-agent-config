@@ -6,21 +6,22 @@ This policy applies to every current and successor agent, including Codex, Copil
 
 ## Identity and context
 
+- Default email routing to the personal account unless work context is verified. Missing Git configuration, unavailable GitHub access, or incomplete identity information does not by itself block personal routing or establish work context. This explicitly replaces the former ask-on-unknown rule.
 - Resolve the Git email in the repository being worked on, not the configuration repository merely because setup runs there. Use the repository's effective email configuration first, falling back to the global Git email when unset. Preserve the caller's working directory during setup. Do not modify Git identity to make a comparison succeed.
-- Retrieve the personal email from the authenticated GitHub user's profile using an available supported authenticated connector or client. Compare it with the effective Git email using address-aware comparison; do not guess aliases, strip plus tags, or substitute a username or a commit author address.
-- If the public profile email is absent, use a supported authenticated email listing only if authorized and available; use an unambiguous verified primary email. Missing access, missing email, ambiguous identities, or a missing Git email leaves context unresolved. Do not print or publish retrieved addresses.
-- A match with the retrieved personal identity identifies personal task context. A match with a privately configured work identity identifies work task context. A nonmatch with the personal identity alone does not prove work context. Conflicting matches require clarification.
-- Apply known private work-host restrictions independently of task context. A personal repository on a known work computer does not authorize personal MCP configuration. If host eligibility is uncertain, do not register a personal connection until resolved.
-- Keep addresses, work-identity mappings, host classification, and identity cache data outside tracked files. Do not infer an employer from an arbitrary email domain.
+- Retrieve personal email addresses from the authenticated GitHub user's profile and, when authorized and available, the supported authenticated account-email listing. Compare the effective Git email against those personal addresses using address-aware comparison; do not guess aliases, strip plus tags, or substitute a username or a commit author address. Do not print or publish retrieved addresses.
+- A match with a retrieved personal address identifies personal context. An effective Git email verified not to belong to the authenticated user's personal GitHub addresses identifies work context under the user's routing preference. A missing public profile email or an incomplete account-email listing is not proof of a nonmatch.
+- A privately configured work identity or a known work computer also establishes work context. If explicit verified work and personal signals conflict, ask for clarification rather than silently crossing account boundaries. Missing evidence alone uses the personal default, not a clarification prompt.
+- Apply known private work-host restrictions independently of task context. A personal repository on a known work computer does not authorize personal MCP configuration. If host eligibility is uncertain, do not register a personal connection until resolved; the personal routing default does not authorize an otherwise prohibited host-configuration write.
+- Keep addresses, work-identity mappings, host classification, and identity cache data outside tracked files. Do not infer a specific employer from an arbitrary email domain.
 
 ## Transport selection
 
-- Personal context: prefer the existing designated personal MCP connection when the agent supports it and authentication is already configured for that agent. Otherwise use the existing personal SMTP setup.
+- Personal context, including the default when work context is not verified: prefer the existing designated personal MCP connection when the agent supports it and authentication is already configured for that agent. Otherwise use the existing personal SMTP setup.
 - Work context: discover configured connectors available to that agent. Prefer a suitable already authenticated work-mail connector over the existing work SMTP setup. Never substitute a personal connector for work email.
 - A suitable connector must support sending, the intended sender identity, and the required message format. Do not treat a connected status or read-only mailbox access as proof that sending is supported.
 - If multiple suitable connectors exist, use a private explicit preference; otherwise ask rather than selecting arbitrarily. Never silently substitute a connector's default sender for the required sender.
 - Missing MCP support, missing preconfigured authentication, or no suitable connector means use the SMTP setup for the same context, subject to the same sender, recipient, format, and approval requirements. Do not request a new token merely to enable the connector path.
-- Missing SMTP configuration means report the blocker. Unresolved context means ask before sending; never default an unknown identity to personal or work.
+- Missing SMTP configuration means report the blocker. Personal-default routing does not authorize inventing sender or recipient addresses, bypassing approvals, or ignoring verified work restrictions.
 - Do not automatically retry by SMTP after an uncertain connector submission, timeout, or ambiguous delivery result. Determine whether submission occurred first to avoid duplicate messages. Report accepted submission separately from verified delivery.
 - Connector MIME handling must not be claimed equivalent to raw MIME validation without evidence. Retain the existing report helper and its validation for the SMTP fallback.
 
