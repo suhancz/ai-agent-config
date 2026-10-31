@@ -4,11 +4,111 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      repair_script_modes:
+        description: Commit executable-bit fixes to main using the workflow token
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
 
+# Audit Git index modes, not the runner filesystem. Only the manual repair job writes.
+# Classification covers shell scripts, runnable helpers, and other shebang entry points.
+env:
+  SCRIPT_MODE_CODE: |
+    import os
+    from pathlib import PurePosixPath
+    import subprocess
+    import sys
+
+    repair = os.environ.get("REPAIR_SCRIPT_MODES") == "1"
+    entries = subprocess.check_output(["git", "ls-files", "--stage", "-z"])
+    bad = []
+    for entry in entries.split(b"\0"):
+        if not entry:
+            continue
+        metadata, raw_path = entry.split(b"\t", 1)
+        mode, oid, stage = metadata.split()
+        if stage != b"0":
+            raise SystemExit("Unmerged index; refusing permission changes")
+        if mode not in (b"100644", b"100755"):
+            continue
+        path = os.fsdecode(raw_path)
+        item = PurePosixPath(path)
+        script = item.suffix == ".sh" or (
+            item.parts[0] == "helpers" and item.suffix in (".py", ".js", ".mjs")
+        )
+        if not script:
+            blob = subprocess.check_output(["git", "cat-file", "blob", oid.decode()])
+            script = blob.startswith(b"#!")
+        if script and mode != b"100755":
+            bad.append(path)
+            if repair:
+                os.chmod(path, os.stat(path).st_mode | 0o111)
+                subprocess.run(["git", "update-index", "--chmod=+x", "--", path], check=True)
+    for path in bad:
+        print(("Fixed " if repair else "Missing executable mode: ") + repr(path))
+    print(f"Script mode audit: {len(bad)} " + ("fixed" if repair else "incorrect"))
+    sys.exit(0 if repair or not bad else 1)
+
 jobs:
+  script-modes:
+    name: Check executable script modes
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.repair_script_modes) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify tracked script modes
+        run: python3 -c "$SCRIPT_MODE_CODE"
+
+  repair-script-modes:
+    name: Repair executable script modes on main
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.repair_script_modes && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: repair-script-modes-main
+      cancel-in-progress: false
+    steps:
+      - name: Check out current main for explicitly requested repair
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Repair and publish mode-only changes without overwriting concurrent work
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$(git rev-parse HEAD)"
+          test -z "$(git status --porcelain)"
+          REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
+          if git diff --cached --quiet; then
+            printf 'All detected scripts already have executable Git modes.\n'
+            exit 0
+          fi
+          git diff --cached --numstat | awk '
+            $1 != 0 || $2 != 0 { bad = 1 }
+            END { exit bad }
+          '
+          git fetch origin main
+          if [[ "$(git rev-parse origin/main)" != "$base" ]]; then
+            printf 'Main changed during repair; rerun against its latest revision.\n' >&2
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'Mark runnable scripts executable in Git'
+          git push origin HEAD:refs/heads/main
+          python3 -c "$SCRIPT_MODE_CODE"
+          git ls-tree -r HEAD
+
   lint:
     name: Lint repository
     runs-on: ubuntu-latest
