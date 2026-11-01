@@ -17,11 +17,19 @@ def install(agent, repo):
         event = "UserPromptSubmit"
         entry = {"hooks": [{"type": "command", "command": command}]}
         data = {"hooks": {}}
+    elif agent == "qwen":
+        target = home / ".qwen" / "settings.json"
+        event = "UserPromptSubmit"
+        command = "(" + command + ") >&2 || exit 2"
+        entry = {"hooks": [{"type": "command", "command": command}]}
+        data = {"hooks": {}}
     else:
         target = Path(os.environ.get("COPILOT_HOME", home / ".copilot")) / "hooks" / "ai-agent-config.json"
         event = "userPromptSubmitted"
         entry = {"type": "command", "bash": command, "timeoutSec": 30}
         data = {"version": 1, "hooks": {}}
+    if target.is_symlink():
+        raise ValueError("Refusing to replace a symlinked hook/settings file")
     if target.exists():
         data = json.loads(target.read_text(encoding="utf-8"))
     hooks = data.setdefault("hooks", {})
@@ -44,7 +52,7 @@ def install(agent, repo):
 def main():
     """Install only for the explicitly selected agent."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent", choices=("codex", "copilot"), required=True)
+    parser.add_argument("--agent", choices=("codex", "copilot", "qwen"), required=True)
     parser.add_argument("--repo", type=Path, required=True)
     args = parser.parse_args()
     install(args.agent, args.repo.resolve())

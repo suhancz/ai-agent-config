@@ -35,6 +35,7 @@ Product names below identify the relevant adapter; product-specific paths and co
 - [Copilot](copilot/README.md)
 - [Editor integration](vscode/README.md)
 - [Perplexity and its search CLI](perplexity/README.md)
+- [Qwen Code](qwen/README.md)
 - [Rovo](rovo/README.md)
 - [Standalone Teamwork Graph CLI](twg/README.md)
 
