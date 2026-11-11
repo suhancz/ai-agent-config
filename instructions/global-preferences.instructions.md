@@ -40,3 +40,11 @@ When an authorized authenticated work-item tool is available, perform the requir
 Write concise, direct, factual prose with useful results first. Avoid generic introductions, filler, repeated conclusions, and unverified success claims. Keep paragraphs short and use headings/lists only where useful. Preserve necessary commands, caveats, and technical detail in documentation without duplicating provider-specific instructions in shared files.
 
 Synchronize confirmed non-sensitive enduring preferences across affected adapters and canonical memory while preserving unrelated content. Ask when an apparent preference conflict is ambiguous. Keep private values, raw transcripts, runtime state, third-party skills, and credentials outside Git. Report unsupported operations and incomplete automation explicitly.
+
+## Remote backup naming
+
+- All current and successor agents must append the active Jira ticket key, when reliably known, and the current timestamp to backup filenames created on remote systems, including backups made by suggested commands and one-liners.
+- Use a filesystem-safe postfix such as `<original>.bak.<JIRA-KEY>.<YYYYMMDDTHHMMSSZ>` or `<archive>.tar.<JIRA-KEY>.<YYYYMMDDTHHMMSSZ>`. Generate the timestamp on the remote system at backup creation time; use UTC for the illustrated `Z` format or include an explicit offset for another timezone. Never reuse the request time as the backup creation time.
+- Resolve the active ticket from explicit task context or authorized work-item tools when practical. Do not guess a ticket key or reuse an unrelated one. If no ticket can be reliably determined, retain the timestamp and omit the ticket component; ask for the key when it is necessary for traceability.
+- Preserve existing backups and avoid overwriting a colliding name. Capture the exact generated backup path once and use that same path in rollback instructions.
+- Persist only this generic preference in the repository. Keep actual work-ticket identifiers, remote paths, hostnames, and backup artifacts in private task/runtime context.
