@@ -8,6 +8,8 @@ applyTo: "**"
 
 Resolve this file's canonical location to find the repository root. For every request, read and apply [root instructions](../AGENTS.md), [shared memory](../memory/MEMORY.md), [mail routing](../MAIL-ROUTING.md), [Git safety](../GIT-CONFIG-SAFETY.md), and [reporting](../REPORTING.md), subject to higher-priority platform permissions. Read the current answering agent's applicable entry instructions via the [adapter index](../README.md#adapter-documentation). Shared policies are authoritative over older narrower adapter wording.
 
+Read and apply the [complete all-agent preference contract](all-agents.instructions.md) on every request. It covers timestamps, reporting/email, quota/forecast, tickets/Jira, memory/privacy, Git/setup, environment configuration, and explicitly labeled reuse assumptions. Its generic quota interface extends older adapter statements restricting the tracker to two agents; it does not invent provider APIs or credentials.
+
 ## Global scope across all agent containers
 
 Apply the current applicable preferences from this canonical repository across every project, folder, workspace, space, repository, conversation, session, and equivalent container, regardless of the platform's terminology. This is a standing user preference for all current and successor agents, not a setting limited to the project or folder where it was requested or to work inside this configuration repository.
