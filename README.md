@@ -47,7 +47,13 @@ python3.12 -m unittest discover -s helpers -p 'test_*.py'
 bash -n setup.sh helpers/*.sh
 ```
 
-The existing workflow checks Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions. It also checks executable Git modes and repairs detected mode errors automatically on main pushes, subject to token permissions and branch protection. Repairs make no commit when no changes are required. No new push workflow is assumed for a workflow-token bot commit.
+The workflow checks Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions, and runs the Python regression tests. ESLint uses the repository-owned configuration under .github/linters for both JavaScript plugins and MJS helpers; the root config re-exports the same rules. YAML rules allow GitHub's on key and long policy/workflow lines without weakening structural validation.
+
+Executable-mode repair runs on main and other repository branches, including same-repository PR heads. Only tracked regular files with a shebang are treated as executable entry points; imported test modules, libraries, declarative configuration, and symlinks are not marked executable merely by extension. Repairs are mode-only, idempotent, serialized per branch, and refuse to overwrite a concurrently changed branch. A fixture self-test checks classification, content preservation, and idempotence.
+
+Lint checks out the exact repaired commit. Because workflow-token pushes do not normally trigger another run, a repair explicitly dispatches this workflow on the repaired branch with repair_script_modes=false. No additional token secret is required: the repair job uses contents: write and actions: write. Branch protections and repository permissions can still block repairs; such failures must not be hidden. Manual runs can disable repair and audit only.
+
+Fork PRs remain read-only and receive an actual mode audit; missing entry-point bits must be fixed in the contributor's branch. No pull_request_target workflow or privileged execution of fork code is introduced. Same-repository branches are the write-enabled trust boundary. Real lint errors and failed tests still fail CI; local syntax/fixture checks are not a substitute for a live Actions run and a disposable-PR test.
 
 Local tests, configured policy, and observed runtime behavior are different evidence. Report unrun checks and unsupported capabilities. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend validators when introducing a tracked format.
 

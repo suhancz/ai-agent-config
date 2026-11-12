@@ -2,11 +2,12 @@ name: Super-Linter
 
 on:
   push:
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
     inputs:
       repair_script_modes:
-        description: Commit executable-bit fixes to main using the workflow token
+        description: Repair entry-point modes on the selected repository branch
         type: boolean
         required: false
         default: true
@@ -14,12 +15,13 @@ on:
 permissions:
   contents: read
 
-# Repository opt-in: repair modes on trusted main pushes and enabled manual runs.
-# Pull requests and other branches are read-only. No content changes are allowed.
+concurrency:
+  group: modes-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
 env:
   SCRIPT_MODE_CODE: |
     import os
-    from pathlib import PurePosixPath
     import subprocess
     import sys
 
@@ -35,15 +37,11 @@ env:
             raise SystemExit("Unmerged index; refusing permission changes")
         if mode not in (b"100644", b"100755"):
             continue
+        blob = subprocess.check_output(["git", "cat-file", "blob", oid.decode()])
+        if not blob.startswith(b"#!"):
+            continue
         path = os.fsdecode(raw_path)
-        item = PurePosixPath(path)
-        script = item.suffix == ".sh" or (
-            item.parts[0] == "helpers" and item.suffix in (".py", ".js", ".mjs")
-        )
-        if not script:
-            blob = subprocess.check_output(["git", "cat-file", "blob", oid.decode()])
-            script = blob.startswith(b"#!")
-        if script and mode != b"100755":
+        if mode != b"100755":
             bad.append(path)
             if repair:
                 os.chmod(path, os.stat(path).st_mode | 0o111)
@@ -54,76 +52,147 @@ env:
     sys.exit(0 if repair or not bad else 1)
 
 jobs:
-  script-modes:
-    name: Check executable script modes
-    if: ${{ !((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.repair_script_modes && github.ref == 'refs/heads/main')) }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - name: Verify tracked script modes
-        run: python3 -c "$SCRIPT_MODE_CODE"
-
   repair-script-modes:
-    name: Repair executable script modes on main
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.repair_script_modes)) }}
+    name: Repair executable script modes
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    concurrency:
-      group: repair-script-modes-main
-      cancel-in-progress: false
+      actions: write
+    outputs:
+      sha: ${{ steps.repair.outputs.sha }}
     steps:
-      - name: Check out current main for enabled repair
+      - name: Check out the actual repository branch, never a PR merge ref
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
           persist-credentials: true
-      - name: Repair and publish mode-only changes without overwriting concurrent work
+      - name: Test entry-point classification and idempotence
         shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+          code = os.environ["SCRIPT_MODE_CODE"]
+          with tempfile.TemporaryDirectory() as directory:
+              root = Path(directory)
+              def git(*args):
+                  return subprocess.check_output(["git", *args], cwd=root)
+              git("init", "-q")
+              examples = {
+                  "run.sh": "#!/bin/sh\nexit 0\n",
+                  "run.py": "#!/usr/bin/env python3\npass\n",
+                  "run.mjs": "#!/usr/bin/env node\n",
+                  "test_module.py": "import unittest\n",
+                  "library.py": "VALUE = 1\n",
+                  "config.mjs": "export default [];\n",
+                  "sourced.sh": "value=1\n",
+              }
+              for name, text in examples.items():
+                  (root / name).write_text(text)
+                  (root / name).chmod(0o644)
+              (root / "linked-script").symlink_to("run.sh")
+              git("add", ".")
+              content = git("diff", "--cached", "--numstat")
+              env = dict(os.environ, REPAIR_SCRIPT_MODES="1")
+              subprocess.run(["python3", "-c", code], cwd=root, env=env, check=True)
+              modes = {line.split(b"\t", 1)[1].decode(): line.split()[0] for line in git("ls-files", "--stage").splitlines()}
+              for name in ("run.sh", "run.py", "run.mjs"):
+                  assert modes[name] == b"100755"
+              for name in ("test_module.py", "library.py", "config.mjs", "sourced.sh"):
+                  assert modes[name] == b"100644"
+              assert modes["linked-script"] == b"120000"
+              assert git("diff", "--cached", "--numstat") == content
+              result = subprocess.check_output(["python3", "-c", code], cwd=root, env=env)
+              assert b"0 fixed" in result
+          PY
+      - name: Publish only mode corrections and audit the resulting commit
+        id: repair
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+          ENABLE_REPAIR: ${{ github.event_name != 'workflow_dispatch' || inputs.repair_script_modes }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           base="$(git rev-parse HEAD)"
           test -z "$(git status --porcelain)"
-          REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
-          if git diff --cached --quiet; then
-            printf 'All detected scripts already have executable Git modes.\n'
-            exit 0
+          if [[ "$ENABLE_REPAIR" == true ]]; then
+            REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
+          else
+            python3 -c "$SCRIPT_MODE_CODE"
           fi
-          git diff --cached --numstat | awk '
-            $1 != 0 || $2 != 0 { bad = 1 }
-            END { exit bad }
-          '
-          git fetch origin main
-          if [[ "$(git rev-parse origin/main)" != "$base" ]]; then
-            printf 'Main changed during repair; rerun against its latest revision.\n' >&2
-            exit 1
+          changed=0
+          if ! git diff --cached --quiet; then
+            git diff --cached --numstat | awk '
+              $1 != 0 || $2 != 0 { bad = 1 }
+              END { exit bad }
+            '
+            git fetch origin "refs/heads/$TARGET_BRANCH"
+            if [[ "$(git rev-parse FETCH_HEAD)" != "$base" ]]; then
+              printf 'Branch moved during mode repair; refusing to overwrite concurrent work.\n' >&2
+              exit 1
+            fi
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'Mark runnable entry points executable in Git'
+            git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+            changed=1
           fi
-          git -c user.name='github-actions[bot]' \
-            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -m 'Mark runnable scripts executable in Git'
-          git push origin HEAD:refs/heads/main
           python3 -c "$SCRIPT_MODE_CODE"
+          printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git ls-tree -r HEAD
+          if ((changed)); then
+            gh workflow run super-linter.yml --repo "$GITHUB_REPOSITORY" \
+              --ref "$TARGET_BRANCH" -f repair_script_modes=false
+          fi
+
+  script-modes:
+    name: Check executable script modes
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out fork PR without write credentials
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Audit without mutating an untrusted contributor branch
+        run: python3 -c "$SCRIPT_MODE_CODE"
 
   lint:
     name: Lint repository
+    needs: [repair-script-modes, script-modes]
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Check out repository
+      - name: Check out the exact repaired commit or read-only PR head
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.repair-script-modes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Run Super-Linter
+      - name: Configure Python for repository tests
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Run regression tests
+        run: python3 -m unittest discover -s helpers -p 'test_*.py'
+      - name: Run Super-Linter with repository-owned rules
         uses: super-linter/super-linter@v9.0.0
         env:
           MULTI_STATUS: false
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
           LINTER_RULES_PATH: .github/linters
+          JAVASCRIPT_ES_CONFIG_FILE: eslint.config.mjs
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_BASH: true
           VALIDATE_GITHUB_ACTIONS: true
@@ -134,3 +203,4 @@ jobs:
           PYTHON_RUFF_FORMAT_CONFIG_FILE: .ruff.toml
           VALIDATE_PYTHON_RUFF: true
           VALIDATE_YAML: true
+          YAML_CONFIG_FILE: .yaml-lint.yml
