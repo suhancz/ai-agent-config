@@ -32,6 +32,7 @@ selected() {
   case "$agent" in
     codex) command -v codex >/dev/null 2>&1 && [[ -f "${CODEX_HOME:-$HOME/.codex}/config.toml" ]] ;;
     copilot) command -v copilot >/dev/null 2>&1 && [[ -f "${COPILOT_HOME:-$HOME/.copilot}/config.json" ]] ;;
+    opencode) command -v opencode >/dev/null 2>&1 && [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.json" || -f "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.jsonc" ]] ;;
     qwen) command -v qwen >/dev/null 2>&1 && [[ -f "$HOME/.qwen/settings.json" ]] ;;
     rovo) command -v rovo >/dev/null 2>&1 && [[ -f "$HOME/.rovo/config.yml" ]] ;;
     twg) [[ -f "$config/twg-bin" ]] ;;
@@ -65,7 +66,7 @@ link_instruction() {
 }
 
 active=()
-for agent in codex copilot qwen rovo twg vscode perplexity pplx; do
+for agent in codex copilot opencode qwen rovo twg vscode perplexity pplx; do
   if selected "$agent"; then active+=("$agent"); fi
 done
 if ((${#active[@]} == 0)); then
@@ -80,7 +81,7 @@ fi
 
 for agent in "${active[@]}"; do
   case "$agent" in
-    codex|copilot|qwen|rovo|pplx)
+    codex|copilot|opencode|qwen|rovo|pplx)
       command -v "$agent" >/dev/null 2>&1 || {
         printf 'Selected agent %s has no executable; skipping.\n' "$agent" >&2
         continue
@@ -96,6 +97,10 @@ for agent in "${active[@]}"; do
       link_instruction "$repo/copilot/copilot-instructions.md" "${COPILOT_HOME:-$HOME/.copilot}/copilot-instructions.md"
       link_file "$repo/helpers/copilot-credit-status.sh" "$HOME/code/.codex-tools/copilot-credit-status.sh"
       link_file "$repo/helpers/copilot-credit-status.mjs" "$HOME/code/.codex-tools/copilot-credit-status.mjs"
+      ;;
+    opencode)
+      source "$repo/helpers/opencode-setup.sh"
+      setup_opencode
       ;;
     qwen)
       link_instruction "$repo/qwen/QWEN.md" "$HOME/.qwen/QWEN.md"

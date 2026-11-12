@@ -1,0 +1,9 @@
+# OpenCode shared instructions
+
+Resolve this instruction symlink to the canonical checkout. Before substantive work on every request, read root AGENTS.md, instructions/global-preferences.instructions.md, memory/MEMORY.md, SETUP.md, REPORTING.md, MAIL-ROUTING.md, GIT-CONFIG-SAFETY.md, this adapter guide, and additional applicable referenced policies. Paths are relative to the canonical checkout, not the live symlink directory. Refresh before final reporting and before publishing configuration changes.
+
+Read the live AGENTS.md.local-overrides.md sidecar and every listed private instruction backup. Follow shared precedence, privacy, timestamps, reporting, memory, validation, Git safety, and mandatory approval policies. Apply them across projects and successor sessions. Report missing or unreadable files rather than claiming full loading.
+
+The native prompt adapter runs lightweight request setup. Hook execution does not itself load every policy into model context, fetch Git, configure connectors, or prove universal enforcement. Do not run request setup a second time merely because this entry file is being read when the hook already succeeded. If hook execution is absent or fails, stop substantive work and report the blocker.
+
+Keep credentials, private client settings, endpoints, connector identities, account identifiers, and machine-specific values outside the repository. Preserve existing unrelated settings. Apply shared host restrictions before configuring MCP facilities. Use only supported current-agent identity and quota information; distinguish OpenCode from its selected provider/model. No quota tracker adapter is added here. Never use another agent's quota helper or pass an unsupported tracker identifier. Without a supported provider-quota interface, report: OpenCode provider quota and renewal unavailable. Forecast unavailable.

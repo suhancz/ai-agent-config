@@ -17,6 +17,21 @@ METRICS = {
 }
 
 
+def configure_agent(agent, labels):
+    """Register explicit quota labels without guessing an agent's provider API."""
+    if not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", agent):
+        raise ValueError("Invalid agent identifier")
+    labels = tuple(dict.fromkeys(label.strip() for label in labels))
+    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _.-]{0,79}", label) for label in labels):
+        raise ValueError("Invalid quota metric label")
+    if labels:
+        if agent in METRICS and METRICS[agent] != labels:
+            raise ValueError("Preserve built-in quota labels for existing adapters")
+        METRICS[agent] = labels
+    elif agent not in METRICS:
+        METRICS[agent] = ()
+
+
 def parse_snapshot(agent, text):
     metrics = {}
     matched_ranges = []
@@ -32,12 +47,10 @@ def parse_snapshot(agent, text):
             for start, end in matched_ranges
         ):
             continue
-        remaining = float(match.group(1))
+        remaining = float(match[1])
         if not 0 <= remaining <= 100:
             raise ValueError(f"Invalid remaining percentage for {label}")
-        metrics[label] = {
-            "remaining_percent": remaining,
-        }
+        metrics[label] = {"remaining_percent": remaining}
         matched_ranges.append(match.span())
     return metrics
 
@@ -52,16 +65,14 @@ def load_rows(path):
                 row = json.loads(line)
                 datetime.fromisoformat(row["timestamp"])
                 if (
-                    row["agent"] not in METRICS
+                    not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", row["agent"])
                     or not isinstance(row["quota"], str)
                     or not 0 <= float(row["remaining_percent"]) <= 100
                 ):
                     raise ValueError("invalid sample fields")
                 rows.append(row)
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-                raise ValueError(
-                    f"Invalid usage sample at {path}:{line_number}"
-                ) from error
+                raise ValueError(f"Invalid usage sample at {path}:{line_number}") from error
     return rows
 
 
@@ -80,67 +91,48 @@ def analyze(rows, agent, now):
     output = {}
     today = now.date()
     midnight = datetime.combine(
-        today + timedelta(days=1),
-        time.min,
+        today + timedelta(days=1), time.min,
         tzinfo=now.tzinfo or now.astimezone().tzinfo,
     )
     current_rows = [
-        row
-        for row in rows
+        row for row in rows
         if row["agent"] == agent
         and datetime.fromisoformat(row["timestamp"]).astimezone().date() == today
     ]
-
     for quota in sorted({row["quota"] for row in current_rows}):
         samples = sorted(
             (row for row in current_rows if row["quota"] == quota),
             key=lambda row: row["timestamp"],
         )
         if len(samples) < 2:
-            output[quota] = (
-                f"{quota}: collecting a second {agent.title()} sample; "
-                "no runout forecast yet."
-            )
+            output[quota] = f"{quota}: collecting a second {agent.title()} sample; no runout forecast yet."
             continue
-
         last_increase = 0
         for index in range(1, len(samples)):
-            if (
-                float(samples[index]["remaining_percent"])
-                > float(samples[index - 1]["remaining_percent"]) + 0.5
-            ):
+            if float(samples[index]["remaining_percent"]) > float(samples[index - 1]["remaining_percent"]) + 0.5:
                 last_increase = index
         samples = samples[last_increase:]
         if len(samples) < 2:
-            output[quota] = (
-                f"{quota}: quota appears to have replenished; collecting a new trend."
-            )
+            output[quota] = f"{quota}: quota appears to have replenished; collecting a new trend."
             continue
-
         first_time = datetime.fromisoformat(samples[0]["timestamp"])
         last_time = datetime.fromisoformat(samples[-1]["timestamp"])
         elapsed_seconds = (last_time - first_time).total_seconds()
         if elapsed_seconds < MINIMUM_TREND_SECONDS:
-            output[quota] = (
-                f"{quota}: trend samples span less than 5 minutes; no runout forecast yet."
-            )
+            output[quota] = f"{quota}: trend samples span less than 5 minutes; no runout forecast yet."
             continue
-
-        first_percent = float(samples[0]["remaining_percent"])
         last_percent = float(samples[-1]["remaining_percent"])
-        consumed = first_percent - last_percent
+        consumed = float(samples[0]["remaining_percent"]) - last_percent
         if consumed <= 0.1:
             output[quota] = f"{quota}: no measurable quota decline today."
             continue
-
         percent_per_hour = consumed / (elapsed_seconds / 3600)
         exhaustion = now + timedelta(hours=last_percent / percent_per_hour)
         rate = f"{percent_per_hour:.1f}%/hour"
         if exhaustion <= midnight:
             output[quota] = (
                 f"WARNING: {agent.title()} {quota} is declining at about {rate}; "
-                f"projected to run out around {exhaustion.astimezone().strftime('%H:%M %Z')}, "
-                "before local midnight."
+                f"projected to run out around {exhaustion.astimezone().strftime('%H:%M %Z')}, before local midnight."
             )
         else:
             output[quota] = (
@@ -152,30 +144,27 @@ def analyze(rows, agent, now):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent", required=True, choices=sorted(METRICS))
+    parser.add_argument("--agent", required=True)
+    parser.add_argument("--metric", action="append", default=[])
     parser.add_argument("--data-file", type=Path, default=DATA_FILE)
     args = parser.parse_args()
+    labels = args.metric or [item.strip() for item in os.environ.get("AI_AGENT_QUOTA_METRICS", "").split(",") if item.strip()]
+    try:
+        configure_agent(args.agent, labels)
+    except ValueError as error:
+        parser.error(str(error))
     snapshot = sys.stdin.read().strip()
     if not snapshot:
         parser.error("provide the current agent's quota status on stdin")
-
     now = datetime.now().astimezone()
     metrics = parse_snapshot(args.agent, snapshot)
     if not metrics:
         print(snapshot)
-        print(
-            f"No parseable {args.agent.title()} quota percentages; no usage sample was recorded."
-        )
+        print(f"No parseable {args.agent.title()} quota percentages; no usage sample was recorded. Forecast unavailable.")
         return 0
-
     existing = load_rows(args.data_file)
     rows = [
-        {
-            "timestamp": now.isoformat(),
-            "agent": args.agent,
-            "quota": quota,
-            **values,
-        }
+        {"timestamp": now.isoformat(), "agent": args.agent, "quota": quota, **values}
         for quota, values in metrics.items()
     ]
     forecasts = analyze(existing + rows, args.agent, now)
@@ -183,11 +172,8 @@ def main():
         row["forecast"] = forecasts[row["quota"]]
         row["forecast_warning"] = forecasts[row["quota"]].startswith("WARNING:")
     save_rows(args.data_file, rows)
-
     print(snapshot)
-    print(
-        f"Recorded {args.agent.title()} quota sample in ignored {args.data_file.name}."
-    )
+    print(f"Recorded {args.agent.title()} quota sample in ignored {args.data_file.name}.")
     for message in forecasts.values():
         print(message)
     return 0

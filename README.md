@@ -34,6 +34,7 @@ Product names below identify the relevant adapter; product-specific paths and co
 - [Codex](codex/README.md)
 - [Copilot](copilot/README.md)
 - [Editor integration](vscode/README.md)
+- [OpenCode](opencode/README.md)
 - [Perplexity and its search CLI](perplexity/README.md)
 - [Qwen Code](qwen/README.md)
 - [Rovo](rovo/README.md)
