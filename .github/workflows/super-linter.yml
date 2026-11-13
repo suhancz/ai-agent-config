@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  PERMISSION_IMAGE: ai-agent-permissions:local
   SCRIPT_MODE_CODE: |
     import os
     from pathlib import PurePosixPath
@@ -94,10 +95,24 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Check manifest modes without changing the index
+      - name: Build the lightweight permission image without repository build context
+        shell: bash
+        run: |
+          set -euo pipefail
+          context="$RUNNER_TEMP/permission-image"
+          mkdir -p "$context"
+          printf 'FROM python:3.12-alpine\nRUN apk add --no-cache git\n' > "$context/Dockerfile"
+          docker build --pull --tag "$PERMISSION_IMAGE" "$context"
+          docker image inspect --format 'Permission helper image: {{.Id}} ({{.Size}} bytes)' "$PERMISSION_IMAGE"
+      - name: Check manifest modes in the lightweight read-only container
         id: check
         shell: bash
-        run: MODE_CHECK_OUTPUT="$GITHUB_OUTPUT" REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/workspace:ro" --volume "$GITHUB_OUTPUT:/ci/output" \
+            --workdir /workspace --env MODE_CHECK_OUTPUT=/ci/output \
+            --env REPAIR_SCRIPT_MODES=0 "$PERMISSION_IMAGE" python3 -c "$SCRIPT_MODE_CODE"
       - name: Report a fork mismatch that cannot be repaired automatically
         if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && steps.check.outputs.correct == 'false' }}
         run: |
@@ -119,6 +134,15 @@ jobs:
           ref: ${{ needs.check-permissions.outputs.sha }}
           fetch-depth: 0
           persist-credentials: true
+      - name: Build the lightweight permission image without repository build context
+        shell: bash
+        run: |
+          set -euo pipefail
+          context="$RUNNER_TEMP/permission-image"
+          mkdir -p "$context"
+          printf 'FROM python:3.12-alpine\nRUN apk add --no-cache git\n' > "$context/Dockerfile"
+          docker build --pull --tag "$PERMISSION_IMAGE" "$context"
+          docker image inspect --format 'Permission helper image: {{.Id}} ({{.Size}} bytes)' "$PERMISSION_IMAGE"
       - name: Repair only manifest-defined modes and commit to the branch
         shell: bash
         env:
@@ -134,8 +158,12 @@ jobs:
             printf 'Branch moved after permission check; refusing to overwrite concurrent work.\n' >&2
             exit 1
           fi
-          REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
-          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/workspace:rw" --workdir /workspace \
+            --env REPAIR_SCRIPT_MODES=1 "$PERMISSION_IMAGE" python3 -c "$SCRIPT_MODE_CODE"
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/workspace:ro" --workdir /workspace \
+            --env REPAIR_SCRIPT_MODES=0 "$PERMISSION_IMAGE" python3 -c "$SCRIPT_MODE_CODE"
           git diff --exit-code
           if git diff --cached --quiet; then
             printf 'No repair changes found; no commit created.\n'
@@ -154,7 +182,9 @@ jobs:
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -m 'Apply reviewed executable-file manifest modes'
           git push origin "HEAD:refs/heads/$TARGET_BRANCH"
-          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/workspace:ro" --workdir /workspace \
+            --env REPAIR_SCRIPT_MODES=0 "$PERMISSION_IMAGE" python3 -c "$SCRIPT_MODE_CODE"
           git ls-tree -r HEAD
           # Workflow-token pushes do not normally trigger another pipeline.
           gh workflow run super-linter.yml --repo "$GITHUB_REPOSITORY" --ref "$TARGET_BRANCH"
