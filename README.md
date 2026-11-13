@@ -15,6 +15,7 @@ No credentials, private addresses, account or connector identities, endpoints, i
 | [Reporting](REPORTING.md) | Completion reports, private mail configuration, and own-agent quota handling |
 | [Mail routing](MAIL-ROUTING.md) | Private identity resolution and connector-first routing |
 | [Git safety](GIT-CONFIG-SAFETY.md) | Latest-config comparison and executable-script requirements |
+| [Executable intent](.github/executable-files.txt) | Exact tracked entry points permitted to have executable Git modes |
 
 Read root instructions, current shared memory, applicable policies, and the answering agent's entry instructions at each task boundary. Private local backups override repository preferences as documented in shared memory, subject to current explicit instructions and platform permissions.
 
@@ -44,18 +45,27 @@ Product names below identify the relevant adapter; product-specific paths and co
 
 ```sh
 python3.12 -m unittest discover -s helpers -p 'test_*.py'
-bash -n setup.sh helpers/*.sh
 ```
 
-The workflow checks Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions, and runs the Python regression tests. ESLint uses the repository-owned configuration under .github/linters for both JavaScript plugins and MJS helpers; the root config re-exports the same rules. YAML rules allow GitHub's on key and long policy/workflow lines without weakening structural validation.
+The final CI decision flow is permission-first. A read-only job checks the exact submitted commit against .github/executable-files.txt and reports whether its modes are correct without modifying the index. Invalid manifests fail closed rather than being treated as ordinary repairable mode mismatches.
 
-Executable-mode repair runs on main and other repository branches, including same-repository PR heads. Only tracked regular files with a shebang are treated as executable entry points; imported test modules, libraries, declarative configuration, and symlinks are not marked executable merely by extension. Repairs are mode-only, idempotent, serialized per branch, and refuse to overwrite a concurrently changed branch. A fixture self-test checks classification, content preservation, and idempotence.
+Permission checks and repairs use a dedicated lightweight image built from python:3.12-alpine with only Git added. Its temporary Dockerfile and build context are created under the runner's temporary directory, not committed or populated from repository contents. The build logs the resulting image ID and size; no exact size is assumed before the live build. Each permission job builds its own local image. Super-Linter is neither referenced nor pulled by these jobs.
 
-Lint checks out the exact repaired commit. Because workflow-token pushes do not normally trigger another run, a repair explicitly dispatches this workflow on the repaired branch with repair_script_modes=false. No additional token secret is required: the repair job uses contents: write and actions: write. Branch protections and repository permissions can still block repairs; such failures must not be hidden. Manual runs can disable repair and audit only.
+The mode-operation containers run with network disabled and the runner's numeric UID/GID. Checks mount the repository read-only and bind only the required GitHub output file separately. Repairs mount the repository writable; subsequent audits use a read-only mount. Checkout, authenticated fetch/commit/push, and workflow dispatch remain on the runner, and the permission container is not given the GitHub token. These operations do not require running JavaScript checkout actions inside an Alpine job container.
 
-Fork PRs remain read-only and receive an actual mode audit; missing entry-point bits must be fixed in the contributor's branch. No pull_request_target workflow or privileged execution of fork code is introduced. Same-repository branches are the write-enabled trust boundary. Real lint errors and failed tests still fail CI; local syntax/fixture checks are not a substitute for a live Actions run and a disposable-PR test.
+If permissions are wrong on a same-repository branch, CI automatically repairs only the manifest-defined modes, commits and pushes the mode-only changes, and explicitly dispatches a new workflow run. Super-Linter and regression tests do not run in the repair-producing pipeline. No interactive approval, manual repair input, or new token secret is required for normal CI repair. The repair job needs contents: write and actions: write; branch protections or repository restrictions can still block writes and must be reported, not bypassed.
 
-Local tests, configured policy, and observed runtime behavior are different evidence. Report unrun checks and unsupported capabilities. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend validators when introducing a tracked format.
+The explicit dispatch is necessary because pushes made with the workflow GITHUB_TOKEN do not normally start another pipeline. The new run checks permissions again. If they are now correct, it runs Super-Linter; if another mismatch exists, it follows the same repair path. Branch movement checks and ordinary non-force pushes preserve concurrent work.
+
+If permissions are already correct, the lint job contains only actions/checkout and super-linter/super-linter. The Super-Linter image is used only for this actual lint job. Do not reintroduce standalone ShellCheck, handwritten source-code lint steps, or duplicate linter wrappers. Repository-owned validator configurations remain supported. Super-Linter provides Bash diagnostics, log groups, and saved summaries. Its six positive selections cover Bash, GitHub Actions, JavaScript, Markdown, Python Ruff, and YAML.
+
+Checkout exposes the checked commit through its built-in commit output. Downstream jobs use that exact SHA. Super-Linter v9 derives its internal SHA from the checked-out HEAD in its supported snapshot/local mode, avoiding absent synthetic PR merge commits. Regression tests run separately only after Super-Linter succeeds; permission-sensitive direct execution therefore tests a permission-correct snapshot.
+
+Only exact tracked regular entry points listed in .github/executable-files.txt receive 100755; every other regular file receives 100644. Shebangs and extensions alone do not establish intent. Listed entry points need a shebang. Symlink and submodule modes are preserved. All agents must maintain the manifest and explicitly stage intended Git modes when changing entry points. Reusable tests create temporary Git fixtures instead of keeping PR-only probe scripts in the repository.
+
+Fork PRs remain read-only. Correct fork modes permit Super-Linter and tests; incorrect modes fail with an explicit contributor-action message because this repository cannot automatically write to arbitrary forks. No pull_request_target workflow or privileged fork-code execution is introduced. Same-repository branches are the write-enabled repair boundary.
+
+Local checks, configured policy, and observed live CI results are different evidence. The lightweight container path is assumed-compatible from the existing Git/Python helper interface until a real build and run verifies it. Report unrun checks and unsupported capabilities; do not suppress real lint errors merely to obtain green CI. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend Super-Linter validators when introducing a tracked format.
 
 ## License
 

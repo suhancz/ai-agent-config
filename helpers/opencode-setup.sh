@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Sourced by setup.sh; use its conflict handling and private backup loader.
 setup_opencode() {
+  if (($# != 2)); then
+    printf 'Usage: setup_opencode <repository> <request-mode:0-or-1>\n' >&2
+    return 2
+  fi
+  local repo="$1" request="$2"
+  if [[ "$request" != 0 && "$request" != 1 ]]; then
+    printf 'OpenCode request mode must be 0 or 1.\n' >&2
+    return 2
+  fi
   local family config_dir plugin_dir v1_target v2_target wanted stale source
   family="$(python3.12 "$repo/helpers/opencode-version.py")" || return 1
   config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"

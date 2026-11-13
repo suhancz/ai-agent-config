@@ -105,44 +105,57 @@ class AgentUsageTests(unittest.TestCase):
                 load_rows(path)
 
     def test_forecast_warning_is_saved_in_local_report(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / ".agent-usage.jsonl"
-            now = datetime.now().astimezone()
-            rows = [
-                {
-                    "timestamp": (now - timedelta(minutes=20)).isoformat(),
-                    "agent": "copilot",
-                    "quota": "chat",
-                    "remaining_percent": 30,
-                },
-                {
-                    "timestamp": (now - timedelta(minutes=10)).isoformat(),
-                    "agent": "copilot",
-                    "quota": "chat",
-                    "remaining_percent": 20,
-                },
-            ]
-            save_rows(path, rows)
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(Path(__file__).with_name("track_agent_usage.py")),
-                    "--agent",
-                    "copilot",
-                    "--data-file",
-                    str(path),
-                ],
-                input="Copilot credits: AI credit quota — chat 10% remaining.",
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            latest_chat = [
-                row for row in load_rows(path) if row["quota"] == "chat"
-            ][-1]
-            self.assertTrue(latest_chat["forecast_warning"])
-            self.assertIn("WARNING:", latest_chat["forecast"])
-            self.assertIn("WARNING:", result.stdout)
+        driver = (
+            "import sys\n"
+            "from datetime import datetime\n"
+            "from unittest.mock import patch\n"
+            "import track_agent_usage as usage\n"
+            "fixed = datetime.fromisoformat(sys.argv.pop(1))\n"
+            "with patch.object(usage, 'datetime', wraps=datetime) as clock:\n"
+            "    clock.now.return_value = fixed\n"
+            "    usage.main()\n"
+        )
+        cases = (
+            (12, 20, True, "WARNING:"),
+            (23, 55, False, "no exhaustion projected before local midnight"),
+            (0, 5, False, "collecting a second Copilot sample"),
+        )
+        for hour, minute, expected_warning, expected_text in cases:
+            with self.subTest(hour=hour, minute=minute):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / ".agent-usage.jsonl"
+                    now = datetime(2026, 10, 14, hour, minute, tzinfo=timezone.utc)
+                    rows = [
+                        {
+                            "timestamp": (now - timedelta(minutes=20)).isoformat(),
+                            "agent": "copilot",
+                            "quota": "chat",
+                            "remaining_percent": 30,
+                        },
+                        {
+                            "timestamp": (now - timedelta(minutes=10)).isoformat(),
+                            "agent": "copilot",
+                            "quota": "chat",
+                            "remaining_percent": 20,
+                        },
+                    ]
+                    save_rows(path, rows)
+                    result = subprocess.run(
+                        [
+                            sys.executable, "-c", driver, now.isoformat(),
+                            "--agent", "copilot", "--data-file", str(path),
+                        ],
+                        cwd=Path(__file__).resolve().parent,
+                        env=dict(os.environ, TZ="UTC", AI_AGENT_QUOTA_METRICS=""),
+                        input="Copilot credits: AI credit quota — chat 10% remaining.",
+                        capture_output=True, text=True, check=True,
+                    )
+                    latest_chat = [
+                        row for row in load_rows(path) if row["quota"] == "chat"
+                    ][-1]
+                    self.assertEqual(latest_chat["forecast_warning"], expected_warning)
+                    self.assertIn(expected_text, latest_chat["forecast"])
+                    self.assertIn(expected_text, result.stdout)
 
 
 if __name__ == "__main__":

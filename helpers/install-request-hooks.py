@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Install per-prompt hooks without replacing unrelated hooks or credentials."""
 
 import argparse
