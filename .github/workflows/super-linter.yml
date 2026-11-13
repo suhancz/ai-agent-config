@@ -223,6 +223,21 @@ jobs:
           ref: ${{ needs.repair-script-modes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Verify the exact snapshot that tests and lint will inspect
+        shell: bash
+        env:
+          EXPECTED_LINT_SHA: ${{ needs.repair-script-modes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse --verify HEAD)"
+          git cat-file -e "${actual}^{commit}"
+          if [[ "$actual" != "$EXPECTED_LINT_SHA" ]]; then
+            printf 'Checkout mismatch: expected %s, found %s\n' "$EXPECTED_LINT_SHA" "$actual" >&2
+            exit 1
+          fi
+          printf 'Verified lint snapshot: %s; workflow event SHA: %s\n' "$actual" "$GITHUB_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
       - name: Configure Python for repository tests
         uses: actions/setup-python@v6
         with:
@@ -232,6 +247,12 @@ jobs:
       - name: Run Super-Linter with repository-owned rules
         uses: super-linter/super-linter@v9.0.0
         env:
+          # v9 local mode initializes and validates its lint SHA from HEAD.
+          # The workflow event SHA may instead name an absent PR merge commit.
+          RUN_LOCAL: true
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          ENABLE_GITHUB_ACTIONS_GROUP_TITLE: true
+          ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: true
           MULTI_STATUS: false
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
           LINTER_RULES_PATH: .github/linters
