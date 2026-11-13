@@ -1,3 +1,5 @@
+[![Super-Linter](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml)
+
 # Agent instructions and helpers
 
 This repository is the canonical source for shared user instructions and setup helpers. Keep shared filenames and documentation agent-neutral. Put product-specific behavior in linked adapter documents; mention a product in shared documentation only when needed to identify an adapter or compatibility requirement.
