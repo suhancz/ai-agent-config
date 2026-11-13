@@ -1,4 +1,4 @@
-[![Super-Linter](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml)
+[![Super-Linter](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml) [![Dependency Graph](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph)
 
 # Agent instructions and helpers
 
