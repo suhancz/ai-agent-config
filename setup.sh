@@ -100,7 +100,7 @@ for agent in "${active[@]}"; do
       ;;
     opencode)
       source "$repo/helpers/opencode-setup.sh"
-      setup_opencode
+      setup_opencode "$repo" "$request"
       ;;
     qwen)
       link_instruction "$repo/qwen/QWEN.md" "$HOME/.qwen/QWEN.md"
