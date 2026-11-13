@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       repair_script_modes:
-        description: Repair manifest-defined modes on the selected repository branch
+        description: Repair manifest-defined modes only after successful lint
         type: boolean
         required: false
         default: true
@@ -79,23 +79,103 @@ env:
     sys.exit(0 if repair or not changes else 1)
 
 jobs:
+  lint:
+    name: Lint repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.snapshot.outputs.sha }}
+    steps:
+      - name: Check out the exact submitted commit without changing permissions
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the immutable lint snapshot
+        id: snapshot
+        shell: bash
+        env:
+          EXPECTED_LINT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse --verify HEAD)"
+          git cat-file -e "${actual}^{commit}"
+          test "$actual" = "$EXPECTED_LINT_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+          printf 'Verified lint snapshot: %s; workflow event SHA: %s\n' "$actual" "$GITHUB_SHA"
+          printf 'sha=%s\n' "$actual" >> "$GITHUB_OUTPUT"
+      - name: Run explicit Bash lint and capture readable diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bash-lint"
+          git ls-files -z -- '*.sh' > "$RUNNER_TEMP/bash-lint/files"
+          mapfile -d '' -t scripts < "$RUNNER_TEMP/bash-lint/files"
+          if ((${#scripts[@]})); then
+            docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
+              --entrypoint shellcheck ghcr.io/super-linter/super-linter:v9.0.0 \
+              --format=gcc --external-sources --source-path=SCRIPTDIR -- "${scripts[@]}" \
+              2>&1 | tee "$RUNNER_TEMP/bash-lint/shellcheck.log"
+          else
+            printf 'No tracked Bash scripts found.\n' | tee "$RUNNER_TEMP/bash-lint/shellcheck.log"
+          fi
+      - name: Run Super-Linter with repository-owned rules
+        if: ${{ !cancelled() && steps.snapshot.outcome == 'success' }}
+        uses: super-linter/super-linter@v9.0.0
+        env:
+          # v9 derives its lint SHA from the actual checkout, not a PR merge ref.
+          RUN_LOCAL: true
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          ENABLE_GITHUB_ACTIONS_GROUP_TITLE: true
+          ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: true
+          MULTI_STATUS: false
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
+          LINTER_RULES_PATH: .github/linters
+          JAVASCRIPT_ES_CONFIG_FILE: eslint.config.mjs
+          VALIDATE_ALL_CODEBASE: true
+          VALIDATE_BASH: true
+          # Executable intent is checked by the manifest job after content lint.
+          VALIDATE_BASH_EXEC: false
+          VALIDATE_GITHUB_ACTIONS: true
+          VALIDATE_JAVASCRIPT_ES: true
+          MARKDOWN_CONFIG_FILE: .markdown-lint.yml
+          VALIDATE_MARKDOWN: true
+          PYTHON_RUFF_CONFIG_FILE: .ruff.toml
+          PYTHON_RUFF_FORMAT_CONFIG_FILE: .ruff.toml
+          VALIDATE_PYTHON_RUFF: true
+          VALIDATE_YAML: true
+          YAML_CONFIG_FILE: .yaml-lint.yml
+      - name: Preserve Bash diagnostics even when lint fails
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bash-lint-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/bash-lint
+          if-no-files-found: ignore
+          retention-days: 7
+
   repair-script-modes:
-    name: Repair executable script modes
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    name: Repair executable script modes after successful lint
+    needs: lint
+    if: ${{ needs.lint.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       actions: write
-    outputs:
-      sha: ${{ steps.repair.outputs.sha }}
-      permissions_changed: ${{ steps.repair.outputs.permissions_changed }}
     steps:
-      - name: Check out the actual repository branch, never a PR merge ref
+      - name: Check out only the exact commit that passed lint
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          ref: ${{ needs.lint.outputs.sha }}
           fetch-depth: 0
           persist-credentials: true
+      - name: Configure Python for post-lint regression tests
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
       - name: Test explicit executable intent and fail-closed validation
         shell: bash
         run: |
@@ -153,123 +233,77 @@ jobs:
               git("add", ".github/executable-files.txt")
               subprocess.run(["python3", "-c", code], cwd=root, env=dict(os.environ, REPAIR_SCRIPT_MODES="0"), check=True)
           PY
-      - name: Publish only mode corrections and audit the resulting commit
-        id: repair
+      - name: Apply manifest modes only to the commit that passed lint
         shell: bash
         env:
           TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+          LINTED_SHA: ${{ needs.lint.outputs.sha }}
           ENABLE_REPAIR: ${{ github.event_name != 'workflow_dispatch' || inputs.repair_script_modes }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$LINTED_SHA"
+          test -z "$(git status --porcelain)"
+          git fetch origin "refs/heads/$TARGET_BRANCH"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$LINTED_SHA" ]]; then
+            printf 'Branch changed after lint; refusing to repair unvalidated content.\n' >&2
+            exit 1
+          fi
+          if [[ "$ENABLE_REPAIR" == true ]]; then
+            REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
+          fi
+          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
+      - name: Run all regression tests after content lint and mode validation
+        run: python3 -m unittest discover -s helpers -p 'test_*.py'
+      - name: Publish mode-only changes after successful lint and tests
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+          LINTED_SHA: ${{ needs.lint.outputs.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          base="$(git rev-parse HEAD)"
-          test -z "$(git status --porcelain)"
-          if [[ "$ENABLE_REPAIR" == true ]]; then
-            REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
-          else
-            python3 -c "$SCRIPT_MODE_CODE"
+          git diff --exit-code
+          if git diff --cached --quiet; then
+            printf 'Manifest modes already correct; no repair commit required.\n'
+            exit 0
           fi
-          changed=0
-          if ! git diff --cached --quiet; then
-            git diff --cached --numstat | awk '
-              $1 != 0 || $2 != 0 { bad = 1 }
-              END { exit bad }
-            '
-            git fetch origin "refs/heads/$TARGET_BRANCH"
-            if [[ "$(git rev-parse FETCH_HEAD)" != "$base" ]]; then
-              printf 'Branch moved during mode repair; refusing to overwrite concurrent work.\n' >&2
-              exit 1
-            fi
-            git -c user.name='github-actions[bot]' \
-              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -m 'Apply reviewed executable-file manifest modes'
-            git push origin "HEAD:refs/heads/$TARGET_BRANCH"
-            changed=1
+          git diff --cached --numstat | awk '
+            $1 != 0 || $2 != 0 { bad = 1 }
+            END { exit bad }
+          '
+          git fetch origin "refs/heads/$TARGET_BRANCH"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$LINTED_SHA" ]]; then
+            printf 'Branch moved during validation; refusing to overwrite concurrent work.\n' >&2
+            exit 1
           fi
-          python3 -c "$SCRIPT_MODE_CODE"
-          printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          printf 'permissions_changed=%s\n' "$changed" >> "$GITHUB_OUTPUT"
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'Apply reviewed executable-file manifest modes after successful lint'
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
           git ls-tree -r HEAD
-          if ((changed)); then
-            gh workflow run super-linter.yml --repo "$GITHUB_REPOSITORY" \
-              --ref "$TARGET_BRANCH" -f repair_script_modes=false
-          fi
+          gh workflow run super-linter.yml --repo "$GITHUB_REPOSITORY" \
+            --ref "$TARGET_BRANCH" -f repair_script_modes=false
 
   script-modes:
-    name: Check executable script modes
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+    name: Audit fork permissions and tests after successful lint
+    needs: lint
+    if: ${{ needs.lint.result == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Check out fork PR without write credentials
+      - name: Check out the linted fork snapshot without write credentials
         uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ needs.lint.outputs.sha }}
           persist-credentials: false
-      - name: Audit without mutating an untrusted contributor branch
-        run: python3 -c "$SCRIPT_MODE_CODE"
-
-  lint:
-    name: Lint repository
-    needs: [repair-script-modes, script-modes]
-    # Repair-producing runs stop after commit/push/dispatch. The follow-up run lints.
-    if: ${{ always() && !cancelled() && ((needs.repair-script-modes.result == 'success' && needs.repair-script-modes.outputs.permissions_changed == '0') || needs.script-modes.result == 'success') }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Check out the exact repaired commit or read-only PR head
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.repair-script-modes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Verify the exact snapshot that tests and lint will inspect
-        shell: bash
-        env:
-          EXPECTED_LINT_SHA: ${{ needs.repair-script-modes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          actual="$(git rev-parse --verify HEAD)"
-          git cat-file -e "${actual}^{commit}"
-          if [[ "$actual" != "$EXPECTED_LINT_SHA" ]]; then
-            printf 'Checkout mismatch: expected %s, found %s\n' "$EXPECTED_LINT_SHA" "$actual" >&2
-            exit 1
-          fi
-          printf 'Verified lint snapshot: %s; workflow event SHA: %s\n' "$actual" "$GITHUB_SHA"
-          git diff --exit-code
-          git diff --cached --exit-code
-      - name: Configure Python for repository tests
+      - name: Configure Python for read-only regression tests
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - name: Run regression tests
-        run: python3 -m unittest discover -s helpers -p 'test_*.py'
-      - name: Require already-correct executable modes before lint
+      - name: Audit manifest modes without repairing the fork
         run: REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
-      - name: Run Super-Linter with repository-owned rules
-        uses: super-linter/super-linter@v9.0.0
-        env:
-          # v9 local mode initializes and validates its lint SHA from HEAD.
-          # The workflow event SHA may instead name an absent PR merge commit.
-          RUN_LOCAL: true
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
-          ENABLE_GITHUB_ACTIONS_GROUP_TITLE: true
-          ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: true
-          MULTI_STATUS: false
-          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
-          LINTER_RULES_PATH: .github/linters
-          JAVASCRIPT_ES_CONFIG_FILE: eslint.config.mjs
-          VALIDATE_ALL_CODEBASE: true
-          VALIDATE_BASH: true
-          VALIDATE_GITHUB_ACTIONS: true
-          VALIDATE_JAVASCRIPT_ES: true
-          MARKDOWN_CONFIG_FILE: .markdown-lint.yml
-          VALIDATE_MARKDOWN: true
-          PYTHON_RUFF_CONFIG_FILE: .ruff.toml
-          PYTHON_RUFF_FORMAT_CONFIG_FILE: .ruff.toml
-          VALIDATE_PYTHON_RUFF: true
-          VALIDATE_YAML: true
-          YAML_CONFIG_FILE: .yaml-lint.yml
+      - name: Run regression tests without changing fork permissions
+        run: python3 -m unittest discover -s helpers -p 'test_*.py'
