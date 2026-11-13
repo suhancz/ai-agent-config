@@ -88,6 +88,7 @@ jobs:
       actions: write
     outputs:
       sha: ${{ steps.repair.outputs.sha }}
+      permissions_changed: ${{ steps.repair.outputs.permissions_changed }}
     steps:
       - name: Check out the actual repository branch, never a PR merge ref
         uses: actions/checkout@v6
@@ -187,6 +188,7 @@ jobs:
           fi
           python3 -c "$SCRIPT_MODE_CODE"
           printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          printf 'permissions_changed=%s\n' "$changed" >> "$GITHUB_OUTPUT"
           git ls-tree -r HEAD
           if ((changed)); then
             gh workflow run super-linter.yml --repo "$GITHUB_REPOSITORY" \
@@ -212,7 +214,8 @@ jobs:
   lint:
     name: Lint repository
     needs: [repair-script-modes, script-modes]
-    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    # Repair-producing runs stop after commit/push/dispatch. The follow-up run lints.
+    if: ${{ always() && !cancelled() && ((needs.repair-script-modes.result == 'success' && needs.repair-script-modes.outputs.permissions_changed == '0') || needs.script-modes.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -244,6 +247,8 @@ jobs:
           python-version: '3.12'
       - name: Run regression tests
         run: python3 -m unittest discover -s helpers -p 'test_*.py'
+      - name: Require already-correct executable modes before lint
+        run: REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
       - name: Run Super-Linter with repository-owned rules
         uses: super-linter/super-linter@v9.0.0
         env:
