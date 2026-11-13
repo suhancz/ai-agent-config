@@ -5,12 +5,6 @@ on:
     branches: ["**"]
   pull_request:
   workflow_dispatch:
-    inputs:
-      repair_script_modes:
-        description: Repair manifest-defined modes only after successful lint
-        type: boolean
-        required: false
-        default: true
 
 permissions:
   contents: read
@@ -76,22 +70,110 @@ env:
             subprocess.run(["git", "update-index", flag, "--", path], check=True)
         print(("Fixed " if repair else "Expected ") + wanted.decode() + ": " + repr(path))
     print(f"Executable manifest audit: {len(changes)} " + ("fixed" if repair else "incorrect"))
+    report = os.environ.get("MODE_CHECK_OUTPUT")
+    if report:
+        with open(report, "a", encoding="utf-8") as stream:
+            stream.write("correct=" + ("false" if changes else "true") + "\n")
+        sys.exit(0)
     sys.exit(0 if repair or not changes else 1)
 
 jobs:
+  check-permissions:
+    name: Check executable permissions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.checkout.outputs.commit }}
+      correct: ${{ steps.check.outputs.correct }}
+    steps:
+      - name: Check out the exact submitted commit without write credentials
+        id: checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check manifest modes without changing the index
+        id: check
+        shell: bash
+        run: MODE_CHECK_OUTPUT="$GITHUB_OUTPUT" REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
+      - name: Report a fork mismatch that cannot be repaired automatically
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && steps.check.outputs.correct == 'false' }}
+        run: |
+          printf 'Fork permissions are incorrect; the contributor must fix their branch. No write token is granted.\n' >&2
+          exit 1
+
+  repair-script-modes:
+    name: Automatically repair and commit executable permissions
+    needs: check-permissions
+    if: ${{ needs.check-permissions.outputs.correct == 'false' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Check out the exact permission-checked commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.check-permissions.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Repair only manifest-defined modes and commit to the branch
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+          CHECKED_SHA: ${{ needs.check-permissions.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CHECKED_SHA"
+          test -z "$(git status --porcelain)"
+          git fetch origin "refs/heads/$TARGET_BRANCH"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$CHECKED_SHA" ]]; then
+            printf 'Branch moved after permission check; refusing to overwrite concurrent work.\n' >&2
+            exit 1
+          fi
+          REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
+          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
+          git diff --exit-code
+          if git diff --cached --quiet; then
+            printf 'No repair changes found; no commit created.\n'
+            exit 0
+          fi
+          git diff --cached --numstat | awk '
+            $1 != 0 || $2 != 0 { bad = 1 }
+            END { exit bad }
+          '
+          git fetch origin "refs/heads/$TARGET_BRANCH"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$CHECKED_SHA" ]]; then
+            printf 'Branch moved during repair; refusing to overwrite concurrent work.\n' >&2
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'Apply reviewed executable-file manifest modes'
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
+          git ls-tree -r HEAD
+          # Workflow-token pushes do not normally trigger another pipeline.
+          gh workflow run super-linter.yml --repo "$GITHUB_REPOSITORY" --ref "$TARGET_BRANCH"
+
   lint:
     name: Lint repository
+    needs: check-permissions
+    if: ${{ needs.check-permissions.outputs.correct == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
       sha: ${{ steps.checkout.outputs.commit }}
     steps:
-      - name: Check out the exact submitted commit
+      - name: Check out the commit whose permissions were already correct
         id: checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.check-permissions.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Run Super-Linter with repository-owned rules
@@ -118,22 +200,19 @@ jobs:
           VALIDATE_YAML: true
           YAML_CONFIG_FILE: .yaml-lint.yml
 
-  repair-script-modes:
-    name: Repair executable script modes after successful lint
+  tests:
+    name: Run regression tests after successful Super-Linter
     needs: lint
-    if: ${{ needs.lint.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      actions: write
+      contents: read
     steps:
-      - name: Check out only the exact commit that passed lint
+      - name: Check out the permission-correct linted commit
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.lint.outputs.sha }}
-          fetch-depth: 0
-          persist-credentials: true
-      - name: Configure Python for post-lint regression tests
+          persist-credentials: false
+      - name: Configure Python for regression tests
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -194,77 +273,5 @@ jobs:
               git("add", ".github/executable-files.txt")
               subprocess.run(["python3", "-c", code], cwd=root, env=dict(os.environ, REPAIR_SCRIPT_MODES="0"), check=True)
           PY
-      - name: Apply manifest modes only to the commit that passed lint
-        shell: bash
-        env:
-          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
-          LINTED_SHA: ${{ needs.lint.outputs.sha }}
-          ENABLE_REPAIR: ${{ github.event_name != 'workflow_dispatch' || inputs.repair_script_modes }}
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$LINTED_SHA"
-          test -z "$(git status --porcelain)"
-          git fetch origin "refs/heads/$TARGET_BRANCH"
-          if [[ "$(git rev-parse FETCH_HEAD)" != "$LINTED_SHA" ]]; then
-            printf 'Branch changed after lint; refusing to repair unvalidated content.\n' >&2
-            exit 1
-          fi
-          if [[ "$ENABLE_REPAIR" == true ]]; then
-            REPAIR_SCRIPT_MODES=1 python3 -c "$SCRIPT_MODE_CODE"
-          fi
-          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
-      - name: Run all regression tests after content lint and mode validation
-        run: python3 -m unittest discover -s helpers -p 'test_*.py'
-      - name: Publish mode-only changes after successful lint and tests
-        shell: bash
-        env:
-          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
-          LINTED_SHA: ${{ needs.lint.outputs.sha }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          git diff --exit-code
-          if git diff --cached --quiet; then
-            printf 'Manifest modes already correct; no repair commit required.\n'
-            exit 0
-          fi
-          git diff --cached --numstat | awk '
-            $1 != 0 || $2 != 0 { bad = 1 }
-            END { exit bad }
-          '
-          git fetch origin "refs/heads/$TARGET_BRANCH"
-          if [[ "$(git rev-parse FETCH_HEAD)" != "$LINTED_SHA" ]]; then
-            printf 'Branch moved during validation; refusing to overwrite concurrent work.\n' >&2
-            exit 1
-          fi
-          git -c user.name='github-actions[bot]' \
-            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -m 'Apply reviewed executable-file manifest modes after successful lint'
-          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
-          REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
-          git ls-tree -r HEAD
-          gh workflow run super-linter.yml --repo "$GITHUB_REPOSITORY" \
-            --ref "$TARGET_BRANCH" -f repair_script_modes=false
-
-  script-modes:
-    name: Audit fork permissions and tests after successful lint
-    needs: lint
-    if: ${{ needs.lint.result == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Check out the linted fork snapshot without write credentials
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ needs.lint.outputs.sha }}
-          persist-credentials: false
-      - name: Configure Python for read-only regression tests
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - name: Audit manifest modes without repairing the fork
-        run: REPAIR_SCRIPT_MODES=0 python3 -c "$SCRIPT_MODE_CODE"
-      - name: Run regression tests without changing fork permissions
+      - name: Run the full regression suite
         run: python3 -m unittest discover -s helpers -p 'test_*.py'
