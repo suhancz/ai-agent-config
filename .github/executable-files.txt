@@ -1,7 +1,6 @@
 # Exact tracked script entry points intended to have Git mode 100755.
 # Imported modules, sourced-only helpers, plugins, tests, and configuration are not entry points.
 setup.sh
-helpers/actions-mode-probe.sh
 helpers/codex-credit-status.sh
 helpers/copilot-credit-status.mjs
 helpers/copilot-credit-status.sh
