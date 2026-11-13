@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       repair_script_modes:
-        description: Repair entry-point modes on the selected repository branch
+        description: Repair manifest-defined modes on the selected repository branch
         type: boolean
         required: false
         default: true
@@ -22,34 +22,61 @@ concurrency:
 env:
   SCRIPT_MODE_CODE: |
     import os
+    from pathlib import PurePosixPath
     import subprocess
     import sys
 
     repair = os.environ.get("REPAIR_SCRIPT_MODES") == "1"
-    entries = subprocess.check_output(["git", "ls-files", "--stage", "-z"])
-    bad = []
-    for entry in entries.split(b"\0"):
+    raw = subprocess.check_output(["git", "ls-files", "--stage", "-z"])
+    entries = {}
+    for entry in raw.split(b"\0"):
         if not entry:
             continue
         metadata, raw_path = entry.split(b"\t", 1)
         mode, oid, stage = metadata.split()
         if stage != b"0":
             raise SystemExit("Unmerged index; refusing permission changes")
+        entries[os.fsdecode(raw_path)] = (mode, oid)
+    manifest = ".github/executable-files.txt"
+    if manifest not in entries or entries[manifest][0] not in (b"100644", b"100755"):
+        raise SystemExit("Executable manifest must be a tracked regular file")
+    text = subprocess.check_output(["git", "show", ":" + manifest]).decode("utf-8")
+    allowed = set()
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        path = PurePosixPath(line)
+        if line != line.strip() or path.is_absolute() or path.as_posix() != line or ".." in path.parts or any(char in line for char in "*?[]\\"):
+            raise SystemExit("Manifest requires exact repository-relative paths")
+        if line in allowed:
+            raise SystemExit("Duplicate executable manifest entry")
+        allowed.add(line)
+    if not allowed:
+        raise SystemExit("Executable manifest must not be empty")
+    for path in allowed:
+        if path not in entries or entries[path][0] not in (b"100644", b"100755"):
+            raise SystemExit("Manifest entry must be a tracked regular file: " + path)
+        blob = subprocess.check_output(["git", "cat-file", "blob", entries[path][1].decode()])
+        if not blob.startswith(b"#!"):
+            raise SystemExit("Executable entry point needs a shebang: " + path)
+    changes = []
+    for path, (mode, _) in entries.items():
         if mode not in (b"100644", b"100755"):
             continue
-        blob = subprocess.check_output(["git", "cat-file", "blob", oid.decode()])
-        if not blob.startswith(b"#!"):
-            continue
-        path = os.fsdecode(raw_path)
-        if mode != b"100755":
-            bad.append(path)
-            if repair:
-                os.chmod(path, os.stat(path).st_mode | 0o111)
-                subprocess.run(["git", "update-index", "--chmod=+x", "--", path], check=True)
-    for path in bad:
-        print(("Fixed " if repair else "Missing executable mode: ") + repr(path))
-    print(f"Script mode audit: {len(bad)} " + ("fixed" if repair else "incorrect"))
-    sys.exit(0 if repair or not bad else 1)
+        wanted = b"100755" if path in allowed else b"100644"
+        if mode != wanted:
+            if os.path.islink(path) or not os.path.isfile(path):
+                raise SystemExit("Working tree file is not regular: " + path)
+            changes.append((path, wanted))
+    for path, wanted in changes:
+        if repair:
+            bits = os.stat(path).st_mode & ~0o111
+            os.chmod(path, bits | (0o111 if wanted == b"100755" else 0))
+            flag = "--chmod=+x" if wanted == b"100755" else "--chmod=-x"
+            subprocess.run(["git", "update-index", flag, "--", path], check=True)
+        print(("Fixed " if repair else "Expected ") + wanted.decode() + ": " + repr(path))
+    print(f"Executable manifest audit: {len(changes)} " + ("fixed" if repair else "incorrect"))
+    sys.exit(0 if repair or not changes else 1)
 
 jobs:
   repair-script-modes:
@@ -68,7 +95,7 @@ jobs:
           ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
           persist-credentials: true
-      - name: Test entry-point classification and idempotence
+      - name: Test explicit executable intent and fail-closed validation
         shell: bash
         run: |
           python3 - <<'PY'
@@ -76,6 +103,7 @@ jobs:
           from pathlib import Path
           import subprocess
           import tempfile
+
           code = os.environ["SCRIPT_MODE_CODE"]
           with tempfile.TemporaryDirectory() as directory:
               root = Path(directory)
@@ -86,6 +114,7 @@ jobs:
                   "run.sh": "#!/bin/sh\nexit 0\n",
                   "run.py": "#!/usr/bin/env python3\npass\n",
                   "run.mjs": "#!/usr/bin/env node\n",
+                  "unlisted.sh": "#!/bin/sh\nexit 0\n",
                   "test_module.py": "import unittest\n",
                   "library.py": "VALUE = 1\n",
                   "config.mjs": "export default [];\n",
@@ -93,8 +122,12 @@ jobs:
               }
               for name, text in examples.items():
                   (root / name).write_text(text)
-                  (root / name).chmod(0o644)
+                  (root / name).chmod(0o755 if name in ("unlisted.sh", "test_module.py") else 0o644)
               (root / "linked-script").symlink_to("run.sh")
+              (root / ".github").mkdir()
+              manifest = root / ".github/executable-files.txt"
+              good = "run.sh\nrun.py\nrun.mjs\n"
+              manifest.write_text(good)
               git("add", ".")
               content = git("diff", "--cached", "--numstat")
               env = dict(os.environ, REPAIR_SCRIPT_MODES="1")
@@ -102,12 +135,22 @@ jobs:
               modes = {line.split(b"\t", 1)[1].decode(): line.split()[0] for line in git("ls-files", "--stage").splitlines()}
               for name in ("run.sh", "run.py", "run.mjs"):
                   assert modes[name] == b"100755"
-              for name in ("test_module.py", "library.py", "config.mjs", "sourced.sh"):
+              for name in ("unlisted.sh", "test_module.py", "library.py", "config.mjs", "sourced.sh"):
                   assert modes[name] == b"100644"
               assert modes["linked-script"] == b"120000"
               assert git("diff", "--cached", "--numstat") == content
               result = subprocess.check_output(["python3", "-c", code], cwd=root, env=env)
               assert b"0 fixed" in result
+              for invalid in ("run.sh\nrun.sh\n", "missing.sh\n", "linked-script\n", "library.py\n", "../run.sh\n", "*.sh\n", ""):
+                  manifest.write_text(invalid)
+                  git("add", ".github/executable-files.txt")
+                  before = git("ls-files", "--stage")
+                  failed = subprocess.run(["python3", "-c", code], cwd=root, env=env, capture_output=True)
+                  assert failed.returncode != 0
+                  assert git("ls-files", "--stage") == before
+              manifest.write_text(good)
+              git("add", ".github/executable-files.txt")
+              subprocess.run(["python3", "-c", code], cwd=root, env=dict(os.environ, REPAIR_SCRIPT_MODES="0"), check=True)
           PY
       - name: Publish only mode corrections and audit the resulting commit
         id: repair
@@ -138,7 +181,7 @@ jobs:
             fi
             git -c user.name='github-actions[bot]' \
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -m 'Mark runnable entry points executable in Git'
+              commit -m 'Apply reviewed executable-file manifest modes'
             git push origin "HEAD:refs/heads/$TARGET_BRANCH"
             changed=1
           fi

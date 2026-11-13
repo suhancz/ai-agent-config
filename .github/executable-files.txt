@@ -1,0 +1,15 @@
+# Exact tracked script entry points intended to have Git mode 100755.
+# Imported modules, sourced-only helpers, plugins, tests, and configuration are not entry points.
+setup.sh
+helpers/actions-mode-probe.sh
+helpers/codex-credit-status.sh
+helpers/copilot-credit-status.mjs
+helpers/copilot-credit-status.sh
+helpers/install-request-hooks.py
+helpers/opencode-version.py
+helpers/perplexity-search.sh
+helpers/rovo-request.sh
+helpers/send-completion-report.py
+helpers/track_agent_usage.py
+helpers/twg-setup.sh
+helpers/write-backup-loader.py

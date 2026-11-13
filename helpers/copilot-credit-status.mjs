@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const sdkEntry = process.argv[2];
 if (!sdkEntry) {
   throw new Error("The Copilot CLI SDK entry path is required.");

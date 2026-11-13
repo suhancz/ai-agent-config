@@ -15,6 +15,7 @@ No credentials, private addresses, account or connector identities, endpoints, i
 | [Reporting](REPORTING.md) | Completion reports, private mail configuration, and own-agent quota handling |
 | [Mail routing](MAIL-ROUTING.md) | Private identity resolution and connector-first routing |
 | [Git safety](GIT-CONFIG-SAFETY.md) | Latest-config comparison and executable-script requirements |
+| [Executable intent](.github/executable-files.txt) | Exact tracked entry points permitted to have executable Git modes |
 
 Read root instructions, current shared memory, applicable policies, and the answering agent's entry instructions at each task boundary. Private local backups override repository preferences as documented in shared memory, subject to current explicit instructions and platform permissions.
 
@@ -49,11 +50,13 @@ bash -n setup.sh helpers/*.sh
 
 The workflow checks Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions, and runs the Python regression tests. ESLint uses the repository-owned configuration under .github/linters for both JavaScript plugins and MJS helpers; the root config re-exports the same rules. YAML rules allow GitHub's on key and long policy/workflow lines without weakening structural validation.
 
-Executable-mode repair runs on main and other repository branches, including same-repository PR heads. Only tracked regular files with a shebang are treated as executable entry points; imported test modules, libraries, declarative configuration, and symlinks are not marked executable merely by extension. Repairs are mode-only, idempotent, serialized per branch, and refuse to overwrite a concurrently changed branch. A fixture self-test checks classification, content preservation, and idempotence.
+Executable-mode repair runs on main and other repository branches, including same-repository PR heads. Only exact tracked regular entry points listed in .github/executable-files.txt receive 100755; every other regular file receives 100644. Shebangs alone and filename extensions do not establish intent. Listed entry points need a shebang. Imported tests, libraries, sourced-only helpers, plugins, and configuration are not implicitly executable. Symlink and submodule modes are preserved.
+
+All agents must maintain the manifest and explicitly stage the appropriate Git mode whenever adding, renaming, removing, or changing an entry point. CI rejects invalid manifest entries before mode changes and repairs both missing and unintended executable bits. Repairs are mode-only, idempotent, serialized per branch, and refuse to overwrite concurrent branch changes. Fixture tests cover listed and unlisted shebang files, imported modules, symlinks, invalid manifests, and content preservation.
 
 Lint checks out the exact repaired commit. Because workflow-token pushes do not normally trigger another run, a repair explicitly dispatches this workflow on the repaired branch with repair_script_modes=false. No additional token secret is required: the repair job uses contents: write and actions: write. Branch protections and repository permissions can still block repairs; such failures must not be hidden. Manual runs can disable repair and audit only.
 
-Fork PRs remain read-only and receive an actual mode audit; missing entry-point bits must be fixed in the contributor's branch. No pull_request_target workflow or privileged execution of fork code is introduced. Same-repository branches are the write-enabled trust boundary. Real lint errors and failed tests still fail CI; local syntax/fixture checks are not a substitute for a live Actions run and a disposable-PR test.
+Fork PRs remain read-only and receive an actual manifest-mode audit; contributors must correct their branch's manifest and modes. No pull_request_target workflow or privileged execution of fork code is introduced. Same-repository branches are the write-enabled trust boundary. Real lint errors and failed tests still fail CI; local fixture checks do not replace live Actions verification.
 
 Local tests, configured policy, and observed runtime behavior are different evidence. Report unrun checks and unsupported capabilities. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend validators when introducing a tracked format.
 

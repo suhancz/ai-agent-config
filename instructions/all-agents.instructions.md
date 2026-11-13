@@ -12,6 +12,16 @@ Apply this contract to every current and successor agent across every project, r
 - Git/setup: preserve SSH transport, upstream freshness checks, dirty/concurrent work, conflict-safe symlinks, validation, modes, and host selection. Do not install CLIs or copy credentials implicitly. Keep one final commit where supported; an expanded already-published PR may be squash-merged by its owner. Leave this PR's approval and merge to the user; do not enable auto-merge.
 - Completion: refresh applicable policies/memory and explicitly distinguish completed, assumed-compatible/unverified, pending approval, blocked, failed, and genuinely inapplicable obligations. Hooks and saved policy do not prove real-client compliance.
 
+## Executable intent and all-agent script maintenance
+
+Every current and successor agent must maintain [.github/executable-files.txt](../.github/executable-files.txt) whenever adding, renaming, removing, or changing the invocation role of a script in this repository. This exact-path reviewed manifest is the authority for executable intent, not an extension, a shebang alone, or a directory-wide chmod.
+
+- Identify actual command-line entry points, including helpers invoked through an explicit interpreter. Add their exact tracked repository-relative paths to the manifest, give them an appropriate interpreter shebang, and record Git mode 100755 in the same task. Renames must replace the old manifest path; removals must remove it.
+- Do not list imported test modules, libraries, sourced-only shell helpers, plugin modules, documentation, or configuration merely because they contain code. Unlisted regular files must have Git mode 100644. Preserve symlinks as 120000 and do not follow them for permission changes; do not alter submodule modes.
+- With Git-capable host access, apply chmod +x and git update-index --chmod=+x -- <path> for intended entry points. Use the corresponding non-executable mode and git update-index --chmod=-x -- <path> for regular files that are no longer entry points. Verify git ls-files --stage and the staged diff, and verify committed modes after publication. Preserve unrelated dirty/staged work.
+- The CI manifest validator must reject missing/untracked entries, directories, symlinks, duplicate paths, wildcard/parent-traversal paths, empty manifests, and listed scripts without shebangs before applying any repair. It repairs both missing intended executable bits and unintended executable bits on unlisted regular files.
+- Never add unrelated files to the manifest to silence a check, mass-chmod by extension, or defer the agent's mode responsibility solely to CI. If the current connector cannot set modes, disclose that boundary and verify the mode-only bot repair at the resulting commit before claiming success. Keep actual lint and test failures visible.
+
 ## Generic quota and forecast interface
 
 helpers/track_agent_usage.py accepts any validated agent slug. Codex/Copilot built-in labels remain unchanged. Other agents use repeated --metric options or AI_AGENT_QUOTA_METRICS, with fresh real status on stdin in the form <metric> <percentage>% remaining. Retain supported reset/renewal text in that status. No provider API, credentials, sampler, or renewal value is invented.
