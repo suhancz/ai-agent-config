@@ -1,6 +1,6 @@
-[![Super-Linter](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml) [![Dependency Graph](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph)
-
 # Agent instructions and helpers
+
+[![Super-Linter](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml) [![Dependency Graph](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph)
 
 This repository is the canonical source for shared user instructions and setup helpers. Keep shared filenames and documentation agent-neutral. Put product-specific behavior in linked adapter documents; mention a product in shared documentation only when needed to identify an adapter or compatibility requirement.
 
