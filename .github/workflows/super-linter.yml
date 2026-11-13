@@ -85,48 +85,18 @@ jobs:
     permissions:
       contents: read
     outputs:
-      sha: ${{ steps.snapshot.outputs.sha }}
+      sha: ${{ steps.checkout.outputs.commit }}
     steps:
-      - name: Check out the exact submitted commit without changing permissions
+      - name: Check out the exact submitted commit
+        id: checkout
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify the immutable lint snapshot
-        id: snapshot
-        shell: bash
-        env:
-          EXPECTED_LINT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          actual="$(git rev-parse --verify HEAD)"
-          git cat-file -e "${actual}^{commit}"
-          test "$actual" = "$EXPECTED_LINT_SHA"
-          git diff --exit-code
-          git diff --cached --exit-code
-          printf 'Verified lint snapshot: %s; workflow event SHA: %s\n' "$actual" "$GITHUB_SHA"
-          printf 'sha=%s\n' "$actual" >> "$GITHUB_OUTPUT"
-      - name: Run explicit Bash lint and capture readable diagnostics
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/bash-lint"
-          git ls-files -z -- '*.sh' > "$RUNNER_TEMP/bash-lint/files"
-          mapfile -d '' -t scripts < "$RUNNER_TEMP/bash-lint/files"
-          if ((${#scripts[@]})); then
-            docker run --rm --volume "$PWD:/workspace:ro" --workdir /workspace \
-              --entrypoint shellcheck ghcr.io/super-linter/super-linter:v9.0.0 \
-              --format=gcc --external-sources --source-path=SCRIPTDIR -- "${scripts[@]}" \
-              2>&1 | tee "$RUNNER_TEMP/bash-lint/shellcheck.log"
-          else
-            printf 'No tracked Bash scripts found.\n' | tee "$RUNNER_TEMP/bash-lint/shellcheck.log"
-          fi
       - name: Run Super-Linter with repository-owned rules
-        if: ${{ !cancelled() && steps.snapshot.outcome == 'success' }}
         uses: super-linter/super-linter@v9.0.0
         env:
-          # v9 derives its lint SHA from the actual checkout, not a PR merge ref.
           RUN_LOCAL: true
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
           ENABLE_GITHUB_ACTIONS_GROUP_TITLE: true
@@ -136,7 +106,6 @@ jobs:
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
           LINTER_RULES_PATH: .github/linters
           JAVASCRIPT_ES_CONFIG_FILE: eslint.config.mjs
-          # Inclusion-only selection; executable modes are managed after lint.
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_BASH: true
           VALIDATE_GITHUB_ACTIONS: true
@@ -148,14 +117,6 @@ jobs:
           VALIDATE_PYTHON_RUFF: true
           VALIDATE_YAML: true
           YAML_CONFIG_FILE: .yaml-lint.yml
-      - name: Preserve Bash diagnostics even when lint fails
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: bash-lint-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/bash-lint
-          if-no-files-found: ignore
-          retention-days: 7
 
   repair-script-modes:
     name: Repair executable script modes after successful lint

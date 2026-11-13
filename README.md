@@ -45,22 +45,21 @@ Product names below identify the relevant adapter; product-specific paths and co
 
 ```sh
 python3.12 -m unittest discover -s helpers -p 'test_*.py'
-bash -n setup.sh helpers/*.sh
 ```
 
-CI lints the exact immutable submitted commit first, without changing executable permissions. The lint job runs explicit ShellCheck diagnostics for tracked .sh files using the Super-Linter v9 image, then runs the configured Bash, JavaScript, Markdown, Python, YAML, and GitHub Actions validators. Super-Linter derives its internal SHA from the actual checkout. A Bash diagnostic failure remains a job failure even if another linter succeeds.
+Use Super-Linter as the sole CI code-linting implementation. The lint job contains only actions/checkout and super-linter/super-linter; do not add duplicate standalone ShellCheck, handwritten code-lint steps, or parallel custom linter wrappers. Repository-owned configuration for Super-Linter's selected validators remains supported. Bash diagnostics, log groups, and summaries come from Super-Linter itself. The removed standalone Bash step and its artifact uploader are not required.
 
-The explicit Bash step writes readable GCC-format diagnostics to the job log and saves its output in the bash-lint artifact for that workflow run, including failed runs. The commit's normal push trigger starts these checks; no separate manual dispatch is needed to begin Bash linting. No new token secret is needed.
+Checkout selects the exact submitted commit and exposes its built-in commit output to downstream jobs. Super-Linter v9 uses its supported snapshot/local mode to derive its internal SHA from the checked-out HEAD, avoiding absent synthetic PR merge commits. Its six positive validator selections cover Bash, GitHub Actions, JavaScript, Markdown, Python Ruff, and YAML, with summary output enabled. Normal push and PR triggers start the checks.
 
-Only after lint succeeds may the trusted-branch job apply the executable manifest, audit modes, and run the full regression suite. Permission-sensitive direct-execution tests run after mode handling, not before it. A failed lint job prevents the permission job from starting; failed tests prevent publishing a repair commit.
+Only after Super-Linter succeeds may the trusted-branch job apply the executable manifest, audit modes, and run the full regression suite. Permission maintenance and regression testing are separate from code linting, not substitute linters. A failed lint job prevents permission changes; failed tests prevent publishing a repair commit. Permission-sensitive direct-execution tests run after mode handling.
 
 Only exact tracked regular entry points listed in .github/executable-files.txt receive 100755; every other regular file receives 100644. Shebangs and extensions alone do not establish intent. Listed entry points need a shebang. Symlink and submodule modes are preserved. All agents must maintain this manifest and explicitly stage intended Git modes when changing entry points. Invalid manifest entries fail before repair. Fixture tests cover explicit intent, unlisted files, symlinks, invalid manifests, idempotence, and content preservation.
 
-Repair checks out the exact SHA that passed lint and refuses to act on a branch that moved to other content. Published repairs must be mode-only and follow successful tests. Because workflow-token pushes do not normally trigger workflows, a repair explicitly dispatches a follow-up run on the repaired branch with repair_script_modes=false. That run lints again and audits/tests without further repair. The repair job needs contents: write and actions: write; branch protections and repository restrictions can still block it.
+Repair checks out the exact SHA that passed lint and refuses to act on a branch that moved to other content. Published repairs must be mode-only and follow successful tests. A repair explicitly dispatches a follow-up run with repair_script_modes=false because workflow-token pushes do not normally trigger workflows. That run uses Super-Linter again, then audits/tests without further repair. The repair job needs contents: write and actions: write; branch protections and repository restrictions can still block it.
 
-Fork PRs are linted first but remain read-only. Their post-lint job audits the manifest and runs tests without permission changes. Contributors must correct any mode mismatch in their own branch. No pull_request_target workflow or privileged fork-code execution is introduced. Same-repository branches are the write-enabled trust boundary.
+Fork PRs remain read-only: Super-Linter runs first, followed by a manifest audit and tests without permission changes. Contributors must correct mode mismatches in their own branches. No pull_request_target workflow or privileged fork-code execution is introduced. Same-repository branches are the write-enabled trust boundary.
 
-Local tests, configured policy, and observed runtime behavior are different evidence. Report unrun checks and unsupported capabilities. Live Bash errors remain unresolved until the diagnostic output is inspected and the code is fixed; no checks should be suppressed merely to obtain green CI. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend validators when introducing a tracked format.
+Local structural checks, configured policy, and observed live CI results are different evidence. Report unrun checks and unsupported capabilities; do not suppress real lint errors merely to obtain green CI. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend Super-Linter validators when introducing a tracked format.
 
 ## License
 
