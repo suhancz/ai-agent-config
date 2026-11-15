@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Sourced-only adapter: all repository jq consumers must use json_query.
 JSON_QUERY_BIN=''
 JSON_QUERY_IMPLEMENTATION=''
