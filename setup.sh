@@ -14,8 +14,58 @@ case "${1:-}" in
   --help|-h) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
 esac
+
+# Check executable availability only; dependency installation is user-managed.
+missing_dependencies=()
+required_missing=0
+check_dependency() {
+  local executable="$1" purpose="$2" required="${3:-0}"
+  if ! command -v "$executable" >/dev/null 2>&1; then
+    missing_dependencies+=("$executable: $purpose")
+    if ((required)); then required_missing=1; fi
+  fi
+}
+report_dependencies() {
+  local status=$? item
+  if ((${#missing_dependencies[@]})); then
+    printf '\nMissing external dependencies (install manually if needed):\n' >&2
+    for item in "${missing_dependencies[@]}"; do printf '  - %s\n' "$item" >&2; done
+    printf 'Optional tools are listed even for unselected integrations. No external binaries were installed.\n' >&2
+  else
+    printf '\nExternal dependency check: all listed executables are available.\n' >&2
+  fi
+  return "$status"
+}
+trap report_dependencies EXIT
+for utility in dirname cat grep readlink date mv mkdir ln; do
+  check_dependency "$utility" 'required by setup and instruction/backup management' 1
+done
+check_dependency python3.12 'required for Python helpers and instruction setup' 1
+check_dependency bash 'shell-based setup, request hooks and wrappers' 1
+check_dependency git 'backup-loader tracked-file safety checks and repository operations' 1
+check_dependency jq 'Codex quota snapshot parsing'
+check_dependency node 'Copilot quota SDK helper'
+check_dependency npm 'optional fallback for locating the Copilot SDK'
+for utility in find sort cut tail awk; do
+  check_dependency "$utility" 'Codex quota history lookup or percentage formatting'
+done
+check_dependency /usr/sbin/sendmail 'local HTML completion-report submission; connector mail may be used instead'
+for agent in codex copilot opencode qwen rovo pplx; do
+  check_dependency "$agent" "$agent CLI integration (only needed when selected)"
+done
+if ((required_missing)); then
+  printf 'Setup blocked by missing required executables; no setup changes made.\n' >&2
+  exit 1
+fi
+
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 config="${XDG_CONFIG_HOME:-$HOME/.config}/ai-agent-config"
+if [[ -f "$config/twg-bin" ]]; then
+  twg_dependency="$(cat -- "$config/twg-bin")"
+  if [[ "$twg_dependency" != /* || "$twg_dependency" == *$'\n'* || ! -f "$twg_dependency" || ! -x "$twg_dependency" ]]; then
+    missing_dependencies+=('configured standalone TWG executable: Teamwork Graph CLI integration; review the private twg-bin setting')
+  fi
+fi
 
 # Keep the caller's working directory for task-repository identity resolution.
 [[ -f "$repo/MAIL-ROUTING.md" ]] || { printf 'Missing shared mail policy.\n' >&2; exit 1; }
