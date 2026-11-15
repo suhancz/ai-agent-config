@@ -10,6 +10,10 @@ Resolve this file's canonical location to find the repository root. For every re
 
 Read and apply the [complete all-agent preference contract](all-agents.instructions.md) on every request. It covers timestamps, reporting/email, quota/forecast, tickets/Jira, memory/privacy, Git/setup, environment configuration, and explicitly labeled reuse assumptions. Its generic quota interface extends older adapter statements restricting the tracker to two agents; it does not invent provider APIs or credentials.
 
+## Connected service status
+
+Every current and successor agent connected to Firecrawl must also load and apply [the Firecrawl adapter](../firecrawl/AGENTS.md) and [its setup guide](../firecrawl/README.md), even on tasks that do not make a Firecrawl content request. At query end, report separately the answering agent's own allowance, Firecrawl service-credit depletion forecast, and Firecrawl credential expiry/refresh status. Reuse fresh supported status metadata when available; do not start billable work or refresh credentials merely to probe status. Include both Firecrawl warnings and concrete unavailable/blocked reasons in final chat and required HTML reports. This extends service-status coverage without relabeling a shared pool as an individual agent quota or granting access to another agent's credentials. Apply the adapter's evidence, sampling, privacy and capability limits; a saved rule is not installed monitoring.
+
 ## Global scope across all agent containers
 
 Apply the current applicable preferences from this canonical repository across every project, folder, workspace, space, repository, conversation, session, and equivalent container, regardless of the platform's terminology. This is a standing user preference for all current and successor agents, not a setting limited to the project or folder where it was requested or to work inside this configuration repository.
