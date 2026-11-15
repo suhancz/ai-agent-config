@@ -17,6 +17,7 @@ esac
 
 # Check executable availability only; dependency installation is user-managed.
 missing_dependencies=()
+active=()
 required_missing=0
 check_dependency() {
   local executable="$1" purpose="$2" required="${3:-0}"
@@ -34,6 +35,11 @@ report_dependencies() {
   else
     printf '\nExternal dependency check: all listed executables are available.\n' >&2
   fi
+  if [[ -n "${repo:-}" && "$required_missing" == 0 ]]; then
+    python3.12 -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); import setup_status; setup_status.report()' \
+      "$repo/helpers" "$repo" "$request" "$status" "${active[@]}" >&2 ||
+      printf 'Status collection failed; original setup exit status preserved.\n' >&2
+  fi
   return "$status"
 }
 trap report_dependencies EXIT
@@ -43,7 +49,7 @@ done
 check_dependency python3.12 'required for Python helpers and instruction setup' 1
 check_dependency bash 'shell-based setup, request hooks and wrappers' 1
 check_dependency git 'backup-loader tracked-file safety checks and repository operations' 1
-check_dependency jq 'Codex quota snapshot parsing'
+check_dependency timeout 'bounded jq-family compatibility probes'
 check_dependency node 'Copilot quota SDK helper'
 check_dependency npm 'optional fallback for locating the Copilot SDK'
 for utility in find sort cut tail awk; do
@@ -59,6 +65,13 @@ if ((required_missing)); then
 fi
 
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=helpers/jq-family.sh
+source "$repo/helpers/jq-family.sh"
+if json_query_init; then
+  printf 'JSON backend: %s (required behavior probes passed).\n' "$(json_query_backend)" >&2
+else
+  missing_dependencies+=('compatible jq/gojq/jaq: JSON parsing unavailable or probes failed')
+fi
 config="${XDG_CONFIG_HOME:-$HOME/.config}/ai-agent-config"
 if [[ -f "$config/twg-bin" ]]; then
   twg_dependency="$(cat -- "$config/twg-bin")"
@@ -115,12 +128,11 @@ link_instruction() {
   printf 'Calling agent: whenever reading %s, read its adjacent .local-overrides.md loader and listed private instruction backups; apply the backup policy in memory/MEMORY.md. Client loading is not verified by setup.\n' "$2" >&2
 }
 
-active=()
 for agent in codex copilot opencode qwen rovo twg vscode perplexity pplx; do
   if selected "$agent"; then active+=("$agent"); fi
 done
 if ((${#active[@]} == 0)); then
-  printf 'No configured agents detected; nothing changed.\n' >&2
+  printf 'No configured agents detected; no managed links changed; status summary follows.\n' >&2
   exit 0
 fi
 

@@ -10,7 +10,10 @@ unavailable() {
   printf '%s\n' 'Codex credits: percentage and renewal unavailable (not exposed by this account).'
 }
 
-if [[ ! -d "${sessions_dir}" ]] || ! command -v jq >/dev/null 2>&1; then
+helper_file="$(readlink -f -- "${BASH_SOURCE[0]}")"
+# shellcheck source=helpers/jq-family.sh
+source "$(dirname -- "$helper_file")/jq-family.sh"
+if ! json_query_init; then
   unavailable
   exit 0
 fi
@@ -30,7 +33,7 @@ if command -v codex >/dev/null 2>&1; then
 
   while IFS= read -r -t 20 app_server_line <&"${credit_app_server[0]}"; do
     rate_limits="$(
-      jq -c 'select(.id == 2 and .result.rateLimits? != null) | .result.rateLimits' \
+      json_query -c 'select(.id == 2 and .result.rateLimits? != null) | .result.rateLimits' \
         <<<"${app_server_line}" 2>/dev/null || true
     )"
 
@@ -43,6 +46,12 @@ if command -v codex >/dev/null 2>&1; then
   wait "${app_server_pid}" 2>/dev/null || true
 fi
 
+# Do not record historical fallback data as a fresh setup observation.
+if [[ "${AI_AGENT_STATUS_LIVE_ONLY:-0}" == 1 && -z "${rate_limits}" ]]; then
+  unavailable
+  exit 0
+fi
+
 # Fall back to the newest locally recorded snapshot when app-server access is
 # unavailable (for example, inside a restricted sandbox).
 while IFS= read -r session_file; do
@@ -51,7 +60,7 @@ while IFS= read -r session_file; do
   fi
 
   rate_limits="$({
-    jq -c 'select(.payload.rate_limits? != null) | .payload.rate_limits' "${session_file}" 2>/dev/null || true
+    json_query -c 'select(.payload.rate_limits? != null) | .payload.rate_limits' "${session_file}" 2>/dev/null || true
   } | tail -n 1)"
 
   if [[ -n "${rate_limits}" ]]; then
@@ -68,7 +77,7 @@ if [[ -z "${rate_limits}" ]]; then
   exit 0
 fi
 
-if [[ "$(jq -r '.credits.unlimited // false' <<<"${rate_limits}")" == 'true' ]]; then
+if [[ "$(json_query -r '.credits.unlimited // false' <<<"${rate_limits}")" == 'true' ]]; then
   printf '%s\n' 'Codex credits: unlimited; no renewal date applies.'
   exit 0
 fi
@@ -103,14 +112,14 @@ window_label() {
 
 parts=()
 
-individual_remaining="$(jq -r '.individualLimit.remainingPercent // .individual_limit.remaining_percent // empty' <<<"${rate_limits}")"
+individual_remaining="$(json_query -r '.individualLimit.remainingPercent // .individual_limit.remaining_percent // empty' <<<"${rate_limits}")"
 if [[ -n "${individual_remaining}" ]]; then
-  individual_reset="$(jq -r '.individualLimit.resetsAt // .individual_limit.resets_at // empty' <<<"${rate_limits}")"
+  individual_reset="$(json_query -r '.individualLimit.resetsAt // .individual_limit.resets_at // empty' <<<"${rate_limits}")"
   parts+=("Business individual limit $(format_number "${individual_remaining}")% remaining ($(format_reset "${individual_reset}"))")
 fi
 
 for window in primary secondary; do
-  used_percent="$(jq -r --arg window "${window}" '.[$window].usedPercent // .[$window].used_percent // empty' <<<"${rate_limits}")"
+  used_percent="$(json_query -r --arg window "${window}" '.[$window].usedPercent // .[$window].used_percent // empty' <<<"${rate_limits}")"
   if [[ -z "${used_percent}" ]]; then
     continue
   fi
@@ -121,8 +130,8 @@ for window in primary secondary; do
     if (remaining > 100) remaining = 100;
     print remaining;
   }')"
-  window_minutes="$(jq -r --arg window "${window}" '.[$window].windowMinutes // .[$window].window_minutes // empty' <<<"${rate_limits}")"
-  reset_epoch="$(jq -r --arg window "${window}" '.[$window].resetsAt // .[$window].resets_at // .[$window].reset_at // empty' <<<"${rate_limits}")"
+  window_minutes="$(json_query -r --arg window "${window}" '.[$window].windowMinutes // .[$window].window_minutes // empty' <<<"${rate_limits}")"
+  reset_epoch="$(json_query -r --arg window "${window}" '.[$window].resetsAt // .[$window].resets_at // .[$window].reset_at // empty' <<<"${rate_limits}")"
 
   parts+=("$(window_label "${window_minutes}") $(format_number "${remaining_percent}")% remaining ($(format_reset "${reset_epoch}"))")
 done
