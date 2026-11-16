@@ -22,7 +22,7 @@ $requestMode = [bool]$Request
 
 $missing = @()
 $requiredMissing = $false
-function Check-Dep([string]$Name,[string]$Purpose,[bool]$Required=$false) {
+function Test-Dependency([string]$Name,[string]$Purpose,[bool]$Required=$false) {
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
     $script:missing += "${Name}: $Purpose"
     if ($Required) { $script:requiredMissing = $true }
@@ -30,12 +30,12 @@ function Check-Dep([string]$Name,[string]$Purpose,[bool]$Required=$false) {
 }
 
 foreach ($u in @('git','python','python3.12')) { }
-Check-Dep 'git' 'required for backup-loader tracked-file safety checks and repository operations' $true
+Test-Dependency 'git' 'required for backup-loader tracked-file safety checks and repository operations' $true
 $pyCmd = Get-Command python3.12 -ErrorAction SilentlyContinue
 if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
 if (-not $pyCmd) { $missing += 'python3.12/python: required for Python helpers and instruction setup'; $requiredMissing = $true }
 foreach ($a in @('codex','copilot','opencode','qwen','kilo','rovo','pplx','wsl')) {
-  Check-Dep $a "$a integration (only needed when selected or for WSL-shared setup)" $false
+  Test-Dependency $a "$a integration (only needed when selected or for WSL-shared setup)" $false
 }
 
 function Get-DefaultWslDistro {
@@ -96,7 +96,7 @@ function Test-Selected([string]$Agent) {
   }
 }
 
-function Link-FileManaged([string]$Source,[string]$Target) {
+function Set-FileLinkManaged([string]$Source,[string]$Target) {
   if (-not (Test-Path $Source)) { throw "Missing source: $Source" }
   $src = (Resolve-Path $Source).Path
   if (Test-Path $Target) {
@@ -121,7 +121,7 @@ function Link-FileManaged([string]$Source,[string]$Target) {
   }
 }
 
-function Link-InstructionManaged([string]$Source,[string]$Target) {
+function Set-InstructionLinkManaged([string]$Source,[string]$Target) {
   Link-FileManaged -Source $Source -Target $Target
   & $pyCmd.Source (Join-Path $sourceRepo 'helpers/write-backup-loader.py') --source $Source --target $Target
   [Console]::Error.WriteLine("Calling agent: whenever reading $Target, read its adjacent .local-overrides.md loader and listed private instruction backups; apply the backup policy in memory/MEMORY.md. Client loading is not verified by setup.")
@@ -188,32 +188,32 @@ foreach ($agent in $active) {
   switch ($agent) {
     'codex' {
       $homeDir = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
-      Link-InstructionManaged (Join-Path $sourceRepo 'codex/AGENTS.md') (Join-Path $homeDir 'AGENTS.md')
-      Link-FileManaged (Join-Path $sourceRepo 'helpers/codex-credit-status.sh') (Join-Path $toolsDir 'codex-credit-status.sh')
-      if (Test-Path (Join-Path $sourceRepo 'helpers/codex-credit-status.ps1')) { Link-FileManaged (Join-Path $sourceRepo 'helpers/codex-credit-status.ps1') (Join-Path $toolsDir 'codex-credit-status.ps1') }
+      Set-InstructionLinkManaged (Join-Path $sourceRepo 'codex/AGENTS.md') (Join-Path $homeDir 'AGENTS.md')
+      Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/codex-credit-status.sh') (Join-Path $toolsDir 'codex-credit-status.sh')
+      if (Test-Path (Join-Path $sourceRepo 'helpers/codex-credit-status.ps1')) { Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/codex-credit-status.ps1') (Join-Path $toolsDir 'codex-credit-status.ps1') }
     }
     'copilot' {
       $homeDir = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $env:USERPROFILE '.copilot' }
-      Link-InstructionManaged (Join-Path $sourceRepo 'copilot/copilot-instructions.md') (Join-Path $homeDir 'copilot-instructions.md')
-      Link-FileManaged (Join-Path $sourceRepo 'helpers/copilot-credit-status.sh') (Join-Path $toolsDir 'copilot-credit-status.sh')
-      Link-FileManaged (Join-Path $sourceRepo 'helpers/copilot-credit-status.mjs') (Join-Path $toolsDir 'copilot-credit-status.mjs')
-      if (Test-Path (Join-Path $sourceRepo 'helpers/copilot-credit-status.ps1')) { Link-FileManaged (Join-Path $sourceRepo 'helpers/copilot-credit-status.ps1') (Join-Path $toolsDir 'copilot-credit-status.ps1') }
+      Set-InstructionLinkManaged (Join-Path $sourceRepo 'copilot/copilot-instructions.md') (Join-Path $homeDir 'copilot-instructions.md')
+      Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/copilot-credit-status.sh') (Join-Path $toolsDir 'copilot-credit-status.sh')
+      Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/copilot-credit-status.mjs') (Join-Path $toolsDir 'copilot-credit-status.mjs')
+      if (Test-Path (Join-Path $sourceRepo 'helpers/copilot-credit-status.ps1')) { Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/copilot-credit-status.ps1') (Join-Path $toolsDir 'copilot-credit-status.ps1') }
     }
     'opencode' {
       $mode = if ($requestMode) { 1 } else { 0 }
       & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $sourceRepo 'helpers/opencode-setup.ps1') -Repo $sourceRepo -Request $mode
     }
     'qwen' {
-      Link-InstructionManaged (Join-Path $sourceRepo 'qwen/QWEN.md') (Join-Path $env:USERPROFILE '.qwen/QWEN.md')
+      Set-InstructionLinkManaged (Join-Path $sourceRepo 'qwen/QWEN.md') (Join-Path $env:USERPROFILE '.qwen/QWEN.md')
     }
     'kilo' {
-      Link-InstructionManaged (Join-Path $sourceRepo 'kilo/AGENTS.md') (Join-Path $configHome 'kilo/AGENTS.md')
+      Set-InstructionLinkManaged (Join-Path $sourceRepo 'kilo/AGENTS.md') (Join-Path $configHome 'kilo/AGENTS.md')
     }
     'rovo' {
       [Console]::Error.WriteLine((Get-Content -Raw -Encoding UTF8 (Join-Path $sourceRepo 'ATLASSIAN.md')))
-      Link-InstructionManaged (Join-Path $sourceRepo 'rovo/AGENTS.md') (Join-Path $env:USERPROFILE '.rovo/AGENTS.md')
-      Link-FileManaged (Join-Path $sourceRepo 'helpers/rovo-request.sh') (Join-Path $toolsDir 'rovo-request.sh')
-      if (Test-Path (Join-Path $sourceRepo 'helpers/rovo-request.ps1')) { Link-FileManaged (Join-Path $sourceRepo 'helpers/rovo-request.ps1') (Join-Path $toolsDir 'rovo-request.ps1') }
+      Set-InstructionLinkManaged (Join-Path $sourceRepo 'rovo/AGENTS.md') (Join-Path $env:USERPROFILE '.rovo/AGENTS.md')
+      Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/rovo-request.sh') (Join-Path $toolsDir 'rovo-request.sh')
+      if (Test-Path (Join-Path $sourceRepo 'helpers/rovo-request.ps1')) { Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/rovo-request.ps1') (Join-Path $toolsDir 'rovo-request.ps1') }
     }
     'twg' {
       [Console]::Error.WriteLine((Get-Content -Raw -Encoding UTF8 (Join-Path $sourceRepo 'ATLASSIAN.md')))
@@ -225,20 +225,20 @@ foreach ($agent in $active) {
       if (Test-Path $legacy) {
         # best-effort legacy repoint handled by link below
       }
-      Link-InstructionManaged (Join-Path $sourceRepo 'instructions/global-preferences.instructions.md') $legacy
+      Set-InstructionLinkManaged (Join-Path $sourceRepo 'instructions/global-preferences.instructions.md') $legacy
     }
     'perplexity' {
-      Link-InstructionManaged (Join-Path $sourceRepo 'perplexity/AGENTS.md') (Join-Path $configDir 'perplexity/AGENTS.md')
+      Set-InstructionLinkManaged (Join-Path $sourceRepo 'perplexity/AGENTS.md') (Join-Path $configDir 'perplexity/AGENTS.md')
     }
     'pplx' {
-      Link-FileManaged (Join-Path $sourceRepo 'helpers/perplexity-search.sh') (Join-Path $toolsDir 'perplexity-search.sh')
-      if (Test-Path (Join-Path $sourceRepo 'helpers/perplexity-search.ps1')) { Link-FileManaged (Join-Path $sourceRepo 'helpers/perplexity-search.ps1') (Join-Path $toolsDir 'perplexity-search.ps1') }
+      Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/perplexity-search.sh') (Join-Path $toolsDir 'perplexity-search.sh')
+      if (Test-Path (Join-Path $sourceRepo 'helpers/perplexity-search.ps1')) { Set-FileLinkManaged (Join-Path $sourceRepo 'helpers/perplexity-search.ps1') (Join-Path $toolsDir 'perplexity-search.ps1') }
     }
   }
   if ($agent -ne 'pplx' -and $agent -ne 'twg') {
     foreach ($helper in @('track_agent_usage.py','send-completion-report.py','test_completion_report.py')) {
       $h = Join-Path $sourceRepo "helpers/$helper"
-      if (Test-Path $h) { Link-FileManaged $h (Join-Path $toolsDir $helper) }
+      if (Test-Path $h) { Set-FileLinkManaged $h (Join-Path $toolsDir $helper) }
     }
   }
   if (-not $requestMode -and ($agent -eq 'codex' -or $agent -eq 'copilot' -or $agent -eq 'qwen')) {

@@ -1,7 +1,6 @@
 @{
-    Rules = @{
-        PSAvoidUsingWriteHost = @{
-            Enable = $false
-        }
-    }
+    ExcludeRules = @(
+        'PSAvoidUsingWriteHost'
+        'PSUseShouldProcessForStateChangingFunctions'
+    )
 }

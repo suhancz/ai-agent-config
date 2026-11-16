@@ -4,7 +4,7 @@ param(
   [Parameter(Mandatory=$true)][int]$Request
 )
 $ErrorActionPreference = 'Stop'
-function Link-FileSafe([string]$Source,[string]$Target,[switch]$BackupExisting) {
+function Set-FileLinkSafe([string]$Source,[string]$Target,[switch]$BackupExisting) {
   if (-not (Test-Path $Source)) { throw "Missing source: $Source" }
   $src = (Resolve-Path $Source).Path
   if (Test-Path $Target) {
@@ -20,8 +20,8 @@ function Link-FileSafe([string]$Source,[string]$Target,[switch]$BackupExisting) 
   try { New-Item -ItemType SymbolicLink -Path $Target -Target $Source -Force | Out-Null }
   catch { New-Item -ItemType HardLink -Path $Target -Target $Source -Force | Out-Null }
 }
-function Link-Instruction([string]$Source,[string]$Target) {
-  Link-FileSafe -Source $Source -Target $Target
+function Set-InstructionLink([string]$Source,[string]$Target) {
+  Set-FileLinkSafe -Source $Source -Target $Target
   $py = Get-Command python3.12 -ErrorAction SilentlyContinue; if (-not $py) { $py = Get-Command python -ErrorAction SilentlyContinue }
   if (-not $py) { throw 'Python required for backup loader generation.' }
   & $py.Source (Join-Path $Repo 'helpers/write-backup-loader.py') --source $Source --target $Target
@@ -60,11 +60,11 @@ if ($Request -ne 0) {
       if ($staleResolved -eq $v1 -or $staleResolved -eq $v2) { $ok=$true }
     }
     if (-not $ok) { throw 'Conflicting inactive OpenCode hook; review it manually before migration.' }
-    Link-FileSafe -Source $source -Target $wanted
+    Set-FileLinkSafe -Source $source -Target $wanted
     Remove-Item -Force $stale
   } else {
-    Link-FileSafe -Source $source -Target $wanted
+    Set-FileLinkSafe -Source $source -Target $wanted
   }
 }
-Link-Instruction -Source (Join-Path $Repo 'opencode/AGENTS.md') -Target (Join-Path $configDir 'AGENTS.md')
+Set-InstructionLink -Source (Join-Path $Repo 'opencode/AGENTS.md') -Target (Join-Path $configDir 'AGENTS.md')
 [Console]::Error.WriteLine("OpenCode API family $family selected; restart and verify prompt-hook loading.")
