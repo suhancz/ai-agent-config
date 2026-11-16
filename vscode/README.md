@@ -1,6 +1,6 @@
 # Editor adapter
 
-See [shared setup](../SETUP.md), [reporting](../REPORTING.md), and the generic [global preferences](../instructions/global-preferences.instructions.md). This adapter targets the existing VS Code Server user-instruction layout; it is not a native Windows desktop installer or a universal IDE hook installer.
+See [shared setup](../SETUP.md), [reporting](../REPORTING.md), and the generic [global preferences](../instructions/global-preferences.instructions.md). This adapter targets the existing VS Code Server user-instruction layout; it is not a native Windows desktop installer or a universal IDE hook installer. The current Kilo Code VS Code extension shares the Kilo 1.0 configuration model; select the `kilo` adapter and see [Kilo Code](../kilo/README.md) for its global instruction/config setup alongside this editor integration.
 
 Selector: `vscode`. Without an allowlist, setup selects it only when `$HOME/.vscode-server/data/User` already exists. The canonical shared source now has the generic path instructions/global-preferences.instructions.md and generic front-matter metadata.
 

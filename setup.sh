@@ -56,7 +56,7 @@ for utility in find sort cut tail awk; do
   check_dependency "$utility" 'Codex quota history lookup or percentage formatting'
 done
 check_dependency /usr/sbin/sendmail 'local HTML completion-report submission; connector mail may be used instead'
-for agent in codex copilot opencode qwen rovo pplx; do
+for agent in codex copilot opencode qwen kilo rovo pplx; do
   check_dependency "$agent" "$agent CLI integration (only needed when selected)"
 done
 if ((required_missing)); then
@@ -97,6 +97,7 @@ selected() {
     copilot) command -v copilot >/dev/null 2>&1 && [[ -f "${COPILOT_HOME:-$HOME/.copilot}/config.json" ]] ;;
     opencode) command -v opencode >/dev/null 2>&1 && [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.json" || -f "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.jsonc" ]] ;;
     qwen) command -v qwen >/dev/null 2>&1 && [[ -f "$HOME/.qwen/settings.json" ]] ;;
+    kilo) command -v kilo >/dev/null 2>&1 || [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/kilo/kilo.json" || -f "${XDG_CONFIG_HOME:-$HOME/.config}/kilo/kilo.jsonc" ]] ;;
     rovo) command -v rovo >/dev/null 2>&1 && [[ -f "$HOME/.rovo/config.yml" ]] ;;
     twg) [[ -f "$config/twg-bin" ]] ;;
     vscode) [[ -d "$HOME/.vscode-server/data/User" ]] ;;
@@ -128,7 +129,7 @@ link_instruction() {
   printf 'Calling agent: whenever reading %s, read its adjacent .local-overrides.md loader and listed private instruction backups; apply the backup policy in memory/MEMORY.md. Client loading is not verified by setup.\n' "$2" >&2
 }
 
-for agent in codex copilot opencode qwen rovo twg vscode perplexity pplx; do
+for agent in codex copilot opencode qwen kilo rovo twg vscode perplexity pplx; do
   if selected "$agent"; then active+=("$agent"); fi
 done
 if ((${#active[@]} == 0)); then
@@ -143,7 +144,7 @@ fi
 
 for agent in "${active[@]}"; do
   case "$agent" in
-    codex|copilot|opencode|qwen|rovo|pplx)
+    codex|copilot|opencode|qwen|kilo|rovo|pplx)
       command -v "$agent" >/dev/null 2>&1 || {
         printf 'Selected agent %s has no executable; skipping.\n' "$agent" >&2
         continue
@@ -166,6 +167,9 @@ for agent in "${active[@]}"; do
       ;;
     qwen)
       link_instruction "$repo/qwen/QWEN.md" "$HOME/.qwen/QWEN.md"
+      ;;
+    kilo)
+      link_instruction "$repo/kilo/AGENTS.md" "${XDG_CONFIG_HOME:-$HOME/.config}/kilo/AGENTS.md"
       ;;
     rovo)
       cat -- "$repo/ATLASSIAN.md" >&2

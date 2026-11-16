@@ -37,6 +37,7 @@ Product names below identify the relevant adapter; product-specific paths and co
 - [Codex](codex/README.md)
 - [Copilot](copilot/README.md)
 - [Editor integration](vscode/README.md)
+- [Kilo Code (CLI and VS Code extension)](kilo/README.md)
 - [OpenCode](opencode/README.md)
 - [Perplexity and its search CLI](perplexity/README.md)
 - [Firecrawl tools and delegated agent tasks](firecrawl/README.md)

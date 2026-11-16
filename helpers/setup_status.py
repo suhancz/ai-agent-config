@@ -15,7 +15,7 @@ import tempfile
 import time
 from zoneinfo import ZoneInfo
 
-CLIS = {"codex", "copilot", "opencode", "qwen", "rovo", "pplx"}
+CLIS = {"codex", "copilot", "opencode", "qwen", "kilo", "rovo", "pplx"}
 LIMIT = 262144
 
 

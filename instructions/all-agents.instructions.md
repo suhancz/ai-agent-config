@@ -1,6 +1,6 @@
 # Complete preferences for all agents
 
-Apply this contract to every current and successor agent across every project, request, and session. It supplements root AGENTS.md, shared preferences, shared memory, SETUP.md, REPORTING.md, MAIL-ROUTING.md, GIT-CONFIG-SAFETY.md, applicable ATLASSIAN.md, and the answering adapter. The adapter index is the synchronized surface registry, including opencode/AGENTS.md; older static lists do not exclude newer agents. Read actual current policies and private backup loaders, not just this summary.
+Apply this contract to every current and successor agent across every project, request, and session. It supplements root AGENTS.md, shared preferences, shared memory, SETUP.md, REPORTING.md, MAIL-ROUTING.md, GIT-CONFIG-SAFETY.md, applicable ATLASSIAN.md, and the answering adapter. The adapter index is the synchronized surface registry, including kilo/AGENTS.md and opencode/AGENTS.md; older static lists do not exclude newer agents. Read actual current policies and private backup loaders, not just this summary.
 
 ## Required behavior
 
