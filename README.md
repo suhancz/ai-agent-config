@@ -2,24 +2,24 @@
 
 [![Super-Linter](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/super-linter.yml) [![Dependency Graph](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/dependabot/update-graph) [![CodeQL](https://github.com/suhancz/ai-agent-config/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/suhancz/ai-agent-config/actions/workflows/github-code-scanning/codeql)
 
-This repository is the canonical source for shared user instructions and setup helpers. Keep shared filenames and documentation agent-neutral. Put product-specific behavior in linked adapter documents; mention a product in shared documentation only when needed to identify an adapter or compatibility requirement.
+This repository is the main place for shared AI agent instructions and setup helpers. Keep shared filenames and docs agent-neutral. Put product-specific behavior in linked adapter docs.
 
-No credentials, private addresses, account or connector identities, endpoints, identifying user information, runtime state, or third-party skill packages belong here. Original content is MIT licensed; referenced tools retain their own licenses.
+No credentials, private addresses, account identities, endpoints, user info, runtime state, or third-party skill packages belong here. Original content is MIT licensed; referenced tools keep their own licenses.
 
 ## Shared policies
 
 | File | Purpose |
 | --- | --- |
-| [AGENTS.md](AGENTS.md) | Mandatory instruction loading, permissions, privacy, timestamps, and Git workflow |
-| [Global preferences](instructions/global-preferences.instructions.md) | Generic shared preference entry point |
-| [Shared memory](memory/MEMORY.md) | Non-sensitive durable preferences and private backup-loader policy |
-| [Setup](SETUP.md) | Host selection, installation, request-time refresh, and compatibility |
-| [Reporting](REPORTING.md) | Completion reports, private mail configuration, and own-agent quota handling |
-| [Mail routing](MAIL-ROUTING.md) | Private identity resolution and connector-first routing |
-| [Git safety](GIT-CONFIG-SAFETY.md) | Latest-config comparison and executable-script requirements |
-| [Executable intent](.github/executable-files.txt) | Exact tracked entry points permitted to have executable Git modes |
+| [AGENTS.md](AGENTS.md) | Main rules: loading, permissions, privacy, timestamps, Git workflow |
+| [Global preferences](instructions/global-preferences.instructions.md) | Shared preferences entry point |
+| [Shared memory](memory/MEMORY.md) | Durable non-private preferences and backup-loader policy |
+| [Setup](SETUP.md) | Host selection, installation, request-time refresh, compatibility |
+| [Reporting](REPORTING.md) | Completion reports, mail config, quota handling |
+| [Mail routing](MAIL-ROUTING.md) | Identity resolution and connector-first routing |
+| [Git safety](GIT-CONFIG-SAFETY.md) | Latest-config comparison and executable script requirements |
+| [Executable intent](.github/executable-files.txt) | Tracked entry points allowed to have executable Git modes |
 
-Read root instructions, current shared memory, applicable policies, and the answering agent's entry instructions at each task boundary. Private local backups override repository preferences as documented in shared memory, subject to current explicit instructions and platform permissions.
+Read root instructions, shared memory, applicable policies, and the agent's entry instructions at each task boundary. Private local backups override repository preferences as documented in shared memory, subject to current explicit instructions and platform permissions.
 
 ## Setup
 
@@ -28,12 +28,12 @@ Read root instructions, current shared memory, applicable policies, and the answ
 bash setup.sh
 bash setup.sh --request
 
-# Windows (PowerShell; prefers WSL-shared canonical checkout when WSL is installed)
+# Windows (PowerShell; prefers WSL-shared checkout when WSL is installed)
 pwsh ./setup.ps1
 pwsh ./setup.ps1 -Request
 ```
 
-See [the setup guide](SETUP.md) before running either command. Setup operates only on selected configured surfaces. It does not install agent CLIs, silently authenticate accounts, fetch upstream, or guarantee native instruction loading.
+See [the setup guide](SETUP.md) before running. Setup only operates on selected configured surfaces. It does not install agent CLIs, silently authenticate accounts, fetch upstream, or guarantee native instruction loading.
 
 ## Adapter documentation
 
@@ -56,25 +56,19 @@ Product names below identify the relevant adapter; product-specific paths and co
 python3.12 -m unittest discover -s helpers -p 'test_*.py'
 ```
 
-The final CI decision flow is permission-first. A read-only job checks the exact submitted commit against .github/executable-files.txt and reports whether its modes are correct without modifying the index. Invalid manifests fail closed rather than being treated as ordinary repairable mode mismatches.
+The CI flow is permission-first. A read-only job checks the submitted commit against .github/executable-files.txt and reports whether its modes are correct. Invalid manifests fail closed.
 
-Permission checks and repairs use a dedicated lightweight image built from python:3.12-alpine with only Git added. Its temporary Dockerfile and build context are created under the runner's temporary directory, not committed or populated from repository contents. The build logs the resulting image ID and size; no exact size is assumed before the live build. Each permission job builds its own local image. Super-Linter is neither referenced nor pulled by these jobs.
+Permission checks and repairs use a lightweight python:3.12-alpine image with only Git. Each job builds its own image. Super-Linter is not pulled by these jobs.
 
-The mode-operation containers run with network disabled and the runner's numeric UID/GID. Checks mount the repository read-only and bind only the required GitHub output file separately. Repairs mount the repository writable; subsequent audits use a read-only mount. Checkout, authenticated fetch/commit/push, and workflow dispatch remain on the runner, and the permission container is not given the GitHub token. These operations do not require running JavaScript checkout actions inside an Alpine job container.
+If permissions are wrong, CI automatically repairs only the manifest-defined modes, commits and pushes the mode-only changes, and dispatches a new workflow run. The repair job needs contents: write and actions: write; branch protections can still block writes and must be reported.
 
-If permissions are wrong on a same-repository branch, CI automatically repairs only the manifest-defined modes, commits and pushes the mode-only changes, and explicitly dispatches a new workflow run. Super-Linter and regression tests do not run in the repair-producing pipeline. No interactive approval, manual repair input, or new token secret is required for normal CI repair. The repair job needs contents: write and actions: write; branch protections or repository restrictions can still block writes and must be reported, not bypassed.
+If permissions are correct, the lint job runs only Super-Linter. Repository-owned validator configs remain supported. Super-Linter covers Bash, GitHub Actions, JavaScript, Markdown, Python Ruff, and YAML.
 
-The explicit dispatch is necessary because pushes made with the workflow GITHUB_TOKEN do not normally start another pipeline. The new run checks permissions again. If they are now correct, it runs Super-Linter; if another mismatch exists, it follows the same repair path. Branch movement checks and ordinary non-force pushes preserve concurrent work.
+Only exact tracked regular entry points in .github/executable-files.txt get mode 100755; all other regular files get 100644. Shebangs and extensions alone don't establish intent. Listed entry points need a shebang. Symlink and submodule modes are preserved. All agents must maintain the manifest and stage intended Git modes when changing entry points.
 
-If permissions are already correct, the lint job contains only actions/checkout and super-linter/super-linter. The Super-Linter image is used only for this actual lint job. Do not reintroduce standalone ShellCheck, handwritten source-code lint steps, or duplicate linter wrappers. Repository-owned validator configurations remain supported. Super-Linter provides Bash diagnostics, log groups, and saved summaries. Its six positive selections cover Bash, GitHub Actions, JavaScript, Markdown, Python Ruff, and YAML.
+Fork PRs remain read-only. Correct fork modes permit Super-Linter and tests; incorrect modes fail with a contributor-action message. No pull_request_target or privileged fork-code execution. Same-repository branches are the write-enabled repair boundary.
 
-Checkout exposes the checked commit through its built-in commit output. Downstream jobs use that exact SHA. Super-Linter v9 derives its internal SHA from the checked-out HEAD in its supported snapshot/local mode, avoiding absent synthetic PR merge commits. Regression tests run separately only after Super-Linter succeeds; permission-sensitive direct execution therefore tests a permission-correct snapshot.
-
-Only exact tracked regular entry points listed in .github/executable-files.txt receive 100755; every other regular file receives 100644. Shebangs and extensions alone do not establish intent. Listed entry points need a shebang. Symlink and submodule modes are preserved. All agents must maintain the manifest and explicitly stage intended Git modes when changing entry points. Reusable tests create temporary Git fixtures instead of keeping PR-only probe scripts in the repository.
-
-Fork PRs remain read-only. Correct fork modes permit Super-Linter and tests; incorrect modes fail with an explicit contributor-action message because this repository cannot automatically write to arbitrary forks. No pull_request_target workflow or privileged fork-code execution is introduced. Same-repository branches are the write-enabled repair boundary.
-
-Local checks, configured policy, and observed live CI results are different evidence. The lightweight container path is assumed-compatible from the existing Git/Python helper interface until a real build and run verifies it. Report unrun checks and unsupported capabilities; do not suppress real lint errors merely to obtain green CI. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend Super-Linter validators when introducing a tracked format.
+Local checks, configured policy, and live CI results are different evidence. The lightweight container path is assumed-compatible until a real build verifies it. Report unrun checks and unsupported capabilities; don't suppress real lint errors. See [Git safety](GIT-CONFIG-SAFETY.md) before publishing. Extend Super-Linter validators when introducing a tracked format.
 
 ## License
 
