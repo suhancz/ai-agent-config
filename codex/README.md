@@ -2,7 +2,7 @@
 
 See [shared setup](../SETUP.md), [reporting](../REPORTING.md), and [entry instructions](AGENTS.md). Preserve root-policy precedence over older entry wording.
 
-Selector: `codex`. Without an allowlist, detection requires the codex executable and `${CODEX_HOME:-$HOME/.codex}/config.toml`. Setup links this directory's AGENTS.md to `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` and refreshes its private backup loader. This is not an authentication test.
+Selector: `codex`. Without an allowlist, detection requires the codex executable and `${CODEX_HOME:-$HOME/.codex}/config.toml`. Run setup from the canonical checkout after selecting the installed client (`bash setup.sh` on Linux/WSL, `pwsh ./setup.ps1` or `powershell -ExecutionPolicy Bypass -File ./setup.ps1` on Windows; see [shared setup](../SETUP.md) for WSL-shared-on-Windows and native fallback behavior). Setup links this directory's AGENTS.md to `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` and refreshes its private backup loader. This is not an authentication test.
 
 Initial setup merges the user-level UserPromptSubmit command into the configured home's hooks.json. Review/trust it with the installed client's supported /hooks interface. Verify repeated prompts; disabled/unsupported hooks must be reported. Existing unrelated hooks are preserved; malformed configuration fails rather than being replaced.
 

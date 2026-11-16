@@ -12,7 +12,6 @@ unavailable() {
 
 helper_file="$(readlink -f -- "${BASH_SOURCE[0]}")"
 # shellcheck source=helpers/jq-family.sh
-# shellcheck source=helpers/jq-family.sh
 source "$(dirname -- "$helper_file")/jq-family.sh"
 if ! json_query_init; then
   unavailable

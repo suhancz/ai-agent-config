@@ -4,7 +4,7 @@ See [shared setup](../SETUP.md), [reporting](../REPORTING.md), [entry instructio
 
 Selector: `rovo`. Without an allowlist, detection requires the rovo executable and ~/.rovo/config.yml. Setup links entry instructions to ~/.rovo/AGENTS.md and refreshes the private backup loader. It does not install the CLI, authenticate an account, repair keychain persistence, or modify tool-managed runtime configuration. Browser authorization followed by a credential-write error is not persistent-login success.
 
-At every request run `bash helpers/rovo-request.sh` from the checkout, or its link under `$HOME/code/.codex-tools/`, and apply the printed current policies. That historical shared helper directory is retained for compatibility. Verify native user-memory loading in the installed client.
+At every request run the request helper from the checkout or its link under the tools directory (`bash helpers/rovo-request.sh` on Linux/WSL, `pwsh ./helpers/rovo-request.ps1` or `powershell -ExecutionPolicy Bypass -File ./helpers/rovo-request.ps1` on Windows), and apply the printed current policies. That historical shared helper directory is retained for compatibility. Verify native user-memory loading in the installed client.
 
 Inspect /hooks before configuring a per-prompt command using bash and the absolute helper path. No guessed schema is installed automatically. Test two prompts in one session and a new session; until verified, instruction-driven execution is required but automatic enforcement is unverified.
 

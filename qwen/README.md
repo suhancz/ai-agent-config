@@ -10,7 +10,7 @@ Run bash setup.sh from the canonical checkout after selecting the installed clie
 
 Initial setup merges one managed UserPromptSubmit command into ~/.qwen/settings.json, preserving unrelated settings and hooks. Identical reruns do not duplicate the entry. Symlinked settings files are refused, not replaced. Invalid JSON or incompatible hook structures fail rather than being reset. Provider/model selection and authentication remain unchanged. Concurrent local settings edits require separate coordination.
 
-The hook runs bash setup.sh --request with output redirected to stderr and translates setup failure to blocking exit code 2. It does not log submitted prompts, call Qwen recursively, fetch Git, install packages, or rewrite hooks. Running request setup is not proof that the model reread all policies; the global instructions separately require that reading.
+The hook runs request setup (`bash setup.sh --request` on Unix, `setup.ps1 -Request` on Windows via the installed hook command) with output redirected to stderr and translates setup failure to blocking exit code 2. It does not log submitted prompts, call Qwen recursively, fetch Git, install packages, or rewrite hooks. Running request setup is not proof that the model reread all policies; the global instructions separately require that reading.
 
 ## Hook coverage and verification
 

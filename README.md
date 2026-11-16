@@ -24,8 +24,13 @@ Read root instructions, current shared memory, applicable policies, and the answ
 ## Setup
 
 ```sh
+# Linux/WSL
 bash setup.sh
 bash setup.sh --request
+
+# Windows (PowerShell; prefers WSL-shared canonical checkout when WSL is installed)
+pwsh ./setup.ps1
+pwsh ./setup.ps1 -Request
 ```
 
 See [the setup guide](SETUP.md) before running either command. Setup operates only on selected configured surfaces. It does not install agent CLIs, silently authenticate accounts, fetch upstream, or guarantee native instruction loading.

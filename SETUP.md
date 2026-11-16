@@ -16,7 +16,11 @@ Apply this local-first, GitHub-fallback prerequisite to every current and succes
 
 ## Requirements and modes
 
-Run setup from a checkout on the existing Linux/WSL environment with Bash, GNU readlink, Git, and Python 3.12/pip. This is not a native Windows installer. Resolve the checkout from setup.sh rather than assuming a home-directory path. Preserve the caller's working directory for task identity resolution.
+Run setup from a resolved canonical checkout. On Linux/WSL, use Bash, GNU readlink, Git, and Python 3.12/pip via `bash setup.sh` or `bash setup.sh --request`. On Windows, use `pwsh ./setup.ps1` or `powershell -ExecutionPolicy Bypass -File ./setup.ps1` (same modes: `--request`, `--backup-existing`).
+
+**WSL-shared on Windows (preferred when WSL is installed):** if WSL is present, the canonical checkout should remain the Linux/WSL path and Windows setup should use the default/selected WSL distro (never assume a distro name). `setup.ps1` attempts to run Linux `setup.sh` in WSL when invoked from a WSL UNC checkout and then manages Windows-side links/helpers for native Windows tools. When `setup.sh` runs inside WSL with Windows interop, it performs a best-effort delegation to Windows `setup.ps1` to configure Windows-side links. Agents on native Windows should use Windows binaries/helpers while reading/writing canonical shared config through the WSL path as applicable.
+
+**Native Windows fallback:** if WSL is not installed/available, `setup.ps1` performs Windows-native setup mirroring Linux behavior (OS-native helpers/links). Resolve the checkout from the setup script path, not a hardcoded home-directory path. Preserve the caller's working directory for task identity resolution.
 
 - `bash setup.sh`: install requirements.txt through user-level Python 3.12 pip, link selected instructions/helpers, refresh private backup loaders, and perform supported initial adapter setup. The Python helpers use the standard library.
 - `bash setup.sh --request`: refresh selected links and private instruction-backup loaders without pip installation, hook rewriting, new OAuth, software upgrades, another agent's quota requests, or Git fetching.

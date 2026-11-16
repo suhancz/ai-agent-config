@@ -1,7 +1,7 @@
 """Version-selection regression tests for the OpenCode adapter."""
 import importlib.util
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 SPEC = importlib.util.spec_from_file_location(
     "opencode_version", Path(__file__).with_name("opencode-version.py")
@@ -28,6 +28,5 @@ class OpenCodeVersionTests(unittest.TestCase):
             "0.9.0", "3.0.0", "2.0.0-beta.1", "development",
             "warning\n1.2.3", "1.2",
         ):
-            with self.subTest(text=text):
-                with self.assertRaises(ValueError):
-                    MODULE.family(text)
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                MODULE.family(text)

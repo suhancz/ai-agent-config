@@ -10,7 +10,7 @@ Managed paths under `${XDG_CONFIG_HOME:-$HOME/.config}/opencode`:
 - V1: `plugins/ai-agent-config.js` links to v1.js.
 - V2: `plugins/ai-agent-config/index.js` links to v2.js.
 
-V1 uses chat.message; V2 registers the session prompt hook. Both await `bash setup.sh --request` with a thirty-second timeout and the plugin instance's task directory. V2's instance location may differ from individual session locations; multi-location server behavior requires separate verification. Errors propagate rather than being reported as success. This is not a universal enforcement boundary.
+V1 uses chat.message; V2 registers the session prompt hook. Both run request setup with a thirty-second timeout and the plugin instance's task directory (`bash setup.sh --request` on Unix, `setup.ps1 -Request` on Windows when present). V2's instance location may differ from individual session locations; multi-location server behavior requires separate verification. Errors propagate rather than being reported as success. This is not a universal enforcement boundary.
 
 Initial setup removes only an obsolete managed V1/V2 symlink after installing its replacement. It refuses unrelated inactive hooks. Request mode probes the version and checks the active managed adapter but does not rewrite hooks. After an API-family upgrade or downgrade, rerun initial setup and restart OpenCode. Existing opencode.json/jsonc, providers, models, MCP registrations, credentials, and unrelated plugins are untouched.
 

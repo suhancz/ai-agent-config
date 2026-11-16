@@ -22,8 +22,13 @@ Resolve the canonical source privately without publishing paths or account detai
 There is no new setup.sh selector or purported native Firecrawl instruction path. Tool connections are configured in calling clients; staging AGENTS.md does not make the service read it. Use the selected caller's existing setup and private allowlist, preserving other selections:
 
 ```sh
+# Linux/WSL
 bash setup.sh
 bash setup.sh --request
+
+# Windows (PowerShell)
+pwsh ./setup.ps1
+pwsh ./setup.ps1 -Request
 ```
 
 Resolve the checkout through setup.sh. Initial setup installs existing Python requirements and selected links/hooks; request setup does not fetch Git, install software or authenticate clients. Existing setup reports missing required/optional external binaries and their purposes. Install non-Python binaries manually, not through requirements.txt.

@@ -8,7 +8,7 @@ Selector: `perplexity`, explicitly enabled in the private allowlist. Setup stage
 
 ## Search CLI
 
-Selector: `pplx`, explicitly enabled and requiring an installed executable. Install/authenticate the official CLI separately. Invoke `bash helpers/perplexity-search.sh` with its supported CLI arguments. The wrapper runs lightweight request setup and forwards arguments unchanged. It is a hosted-search integration, not an autonomous local coding agent or free local inference. Search calls can consume the configured API allowance; no quota API is invented here.
+Selector: `pplx`, explicitly enabled and requiring an installed executable. Install/authenticate the official CLI separately. Invoke the search helper with its supported CLI arguments (`bash helpers/perplexity-search.sh` on Linux/WSL, `pwsh ./helpers/perplexity-search.ps1` or `powershell -ExecutionPolicy Bypass -File ./helpers/perplexity-search.ps1` on Windows). The wrapper runs lightweight request setup and forwards arguments unchanged. It is a hosted-search integration, not an autonomous local coding agent or free local inference. Search calls can consume the configured API allowance; no quota API is invented here.
 
 The wrapper is linked under the historical `$HOME/code/.codex-tools/` directory, retained for compatibility. Shared tracking/report helpers are installed for the agent staging selector, not the search-only selector.
 

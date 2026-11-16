@@ -1,10 +1,7 @@
 """Imported setup diagnostics library, not an autonomous agent or registrar."""
 
-from datetime import datetime, timezone
-from html import escape
 import json
 import os
-from pathlib import Path
 import re
 import selectors
 import shutil
@@ -13,10 +10,65 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime
+from html import escape
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 CLIS = {"codex", "copilot", "opencode", "qwen", "kilo", "rovo", "pplx"}
 LIMIT = 262144
+
+
+def _script_for(repo, name):
+    base = repo / "helpers" / name
+    if os.name == "nt":
+        ps1 = base.with_suffix(".ps1")
+        if ps1.exists():
+            return [ps1]
+        bat = base.with_suffix(".bat")
+        if bat.exists():
+            return [bat]
+        cmd = base.with_suffix(".cmd")
+        if cmd.exists():
+            return [cmd]
+    sh = base.with_suffix(".sh")
+    if sh.exists():
+        return [sh]
+    return [base]
+
+
+def _command_for_script(script_path):
+    path = Path(script_path)
+    suffix = path.suffix.lower()
+    if suffix == ".ps1":
+        pw = shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe")
+        if pw:
+            return [pw, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(path)]
+    if suffix in {".bat", ".cmd"} and os.name == "nt":
+        return [str(path)]
+    # Unix shell scripts
+    if shutil.which("bash"):
+        return ["bash", str(path)]
+    if os.name == "nt":
+        wsl = shutil.which("wsl") or shutil.which("wsl.exe")
+        if wsl:
+            # best-effort: run from wsl if bash unavailable on Windows
+            return [wsl, "bash", str(path)]
+    return [str(path)]
+
+
+def _terminate(child):
+    try:
+        if os.name == "nt":
+            child.kill()
+        else:
+            os.killpg(child.pid, signal.SIGKILL)
+    except (ProcessLookupError, OSError):
+        pass
+    try:
+        child.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 def run(argv, data="", seconds=5):
@@ -24,37 +76,48 @@ def run(argv, data="", seconds=5):
         source.write(data.encode())
         source.seek(0)
         try:
-            child = subprocess.Popen(argv, stdin=source, stdout=subprocess.PIPE,
-                                     stderr=subprocess.DEVNULL, start_new_session=True,
-                                     env=dict(os.environ, CI="1", NO_COLOR="1", AI_AGENT_STATUS_LIVE_ONLY="1"))
+            popen_kw = {
+                "stdin": source,
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.DEVNULL,
+                "env": dict(os.environ, CI="1", NO_COLOR="1", AI_AGENT_STATUS_LIVE_ONLY="1"),
+            }
+            if os.name == "nt":
+                popen_kw["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            else:
+                popen_kw["start_new_session"] = True
+            child = subprocess.Popen(argv, **popen_kw)
         except OSError:
             return None
         output = bytearray()
         deadline = time.monotonic() + seconds
-        with selectors.DefaultSelector() as selector:
-            selector.register(child.stdout, selectors.EVENT_READ)
-            try:
+        try:
+            with selectors.DefaultSelector() as selector:
+                selector.register(child.stdout, selectors.EVENT_READ)
                 while time.monotonic() < deadline:
-                    for key, _ in selector.select(0.05):
+                    events = selector.select(timeout=0.05)
+                    for key, _ in events:
                         chunk = os.read(key.fd, 8192)
                         if not chunk:
-                            return output.decode() if child.wait(timeout=0.5) == 0 else None
+                            rc = child.poll()
+                            if rc is None:
+                                try:
+                                    child.wait(timeout=0.5)
+                                except subprocess.TimeoutExpired:
+                                    return None
+                            return output.decode(errors="replace") if child.wait(timeout=0.5) == 0 else None
                         output.extend(chunk)
                         if len(output) > LIMIT:
                             return None
                 return None
-            except (OSError, UnicodeError, subprocess.TimeoutExpired):
-                return None
-            finally:
-                try:
-                    os.killpg(child.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                try:
-                    child.wait(timeout=1)
-                except subprocess.TimeoutExpired:
-                    pass
+        except (OSError, UnicodeError, subprocess.TimeoutExpired):
+            return None
+        finally:
+            _terminate(child)
+            try:
                 child.stdout.close()
+            except OSError:
+                pass
 
 
 def registry(agent):
@@ -70,7 +133,7 @@ def registry(agent):
         if text is None or not re.search(pattern, text):
             return "CLI present; safe JSON listing unsupported or failed; connection unverified."
     try:
-        value = json.loads(run([agent, "mcp", "list", "--json"]))
+        value = json.loads(run([agent, "mcp", "list", "--json"]) or "")
         servers = value.get("servers") if isinstance(value, dict) else value
         if not isinstance(servers, list) or any(not isinstance(s, dict) or not isinstance(s.get("name"), str) for s in servers):
             raise ValueError("Unknown schema")
@@ -85,7 +148,13 @@ def quota(repo, agent, request):
         return f"{agent}: quota/reset/forecast unavailable or reserved for its calling context."
     if not shutil.which(agent):
         return f"{agent}: CLI missing; quota/reset/forecast unavailable."
-    raw = run(["bash", str(repo / f"helpers/{agent}-credit-status.sh")], seconds=25) or ""
+    candidates = _script_for(repo, f"{agent}-credit-status")
+    raw = ""
+    for script in candidates:
+        cmd = _command_for_script(script)
+        raw = run(cmd, seconds=25) or ""
+        if raw:
+            break
     labels = r"business individual limit|individual limit|5-hour|weekly|chat|completions|premium interactions"
     values = re.findall(rf"(?<![\w-])({labels})\s+(\d+(?:\.\d+)?)%\s+remaining", raw, re.IGNORECASE)
     status = "; ".join(f"{label.lower()} {value}% remaining" for label, value in values if 0 <= float(value) <= 100)
@@ -103,11 +172,18 @@ def quota(repo, agent, request):
     return f"{agent}: " + (output.strip() if output else status + "; recording/forecast failed.")
 
 
+def _safe_private_state(repo):
+    if os.name == "nt":
+        base = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData/Local"))
+        return base / "ai-agent-config" / "setup"
+    return Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "ai-agent-config/setup"
+
+
 def report():
     repo, request, exit_status, *agents = sys.argv[1:]
     repo = Path(repo)
     agents = list(dict.fromkeys(a for a in agents if a in CLIS | {"vscode", "twg", "perplexity"}))
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     lines = [f"Prepared {now}; original setup exit status {int(exit_status)}.",
              "Agent: deterministic setup collector; Model/version: not applicable.",
              "Original user request/time unavailable to shell collector; timezone comes from private TZ."]
@@ -121,12 +197,12 @@ def report():
               "SSH fingerprints: caller must obtain through its authorized SSH surface; not inspected by this collector.",
               "HTML email pending: caller must resolve approved same-context identical sender/recipient and mandatory send approval. No email submitted."]
     print("\nSetup connection/status summary:\n" + "\n".join(lines))
-    state = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "ai-agent-config/setup"
+    state = _safe_private_state(repo)
     try:
         if state.resolve().is_relative_to(repo.resolve()) or state.is_symlink():
             raise ValueError("Private state must be outside repository")
-        state.mkdir(parents=True, mode=0o700, exist_ok=True)
-        if state.stat().st_uid != os.getuid() or state.stat().st_mode & 0o077:
+        state.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt" and (state.stat().st_uid != os.getuid() or state.stat().st_mode & 0o077):
             raise ValueError("Unsafe private directory")
         descriptor, temporary = tempfile.mkstemp(dir=state)
         try:
