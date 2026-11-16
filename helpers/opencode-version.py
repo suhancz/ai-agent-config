@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Detect the installed OpenCode API family without reading authentication state."""
 import re
+import shutil
 import subprocess
 import sys
 
@@ -19,8 +20,9 @@ def family(text):
 def main():
     """Probe the actual executable with a bounded wait."""
     try:
+        exe = shutil.which("opencode") or shutil.which("opencode.cmd") or shutil.which("opencode.exe") or "opencode"
         result = subprocess.run(
-            ["opencode", "--version"], check=True, capture_output=True,
+            [exe, "--version"], check=True, capture_output=True,
             text=True, timeout=10,
         )
         print(family(result.stdout))

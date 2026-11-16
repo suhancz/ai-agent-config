@@ -224,6 +224,8 @@ jobs:
           VALIDATE_JAVASCRIPT_ES: true
           MARKDOWN_CONFIG_FILE: .markdown-lint.yml
           VALIDATE_MARKDOWN: true
+          POWERSHELL_PSSCRIPTANALYZER_CONFIG_FILE: .powershell-psscriptanalyzer.psd1
+          VALIDATE_POWERSHELL: true
           PYTHON_RUFF_CONFIG_FILE: .ruff.toml
           PYTHON_RUFF_FORMAT_CONFIG_FILE: .ruff.toml
           VALIDATE_PYTHON_RUFF: true

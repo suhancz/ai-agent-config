@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""Prepare, validate and send the user's HTML completion reports via sendmail."""
+"""Prepare, validate and send the user's HTML completion reports."""
 
 import argparse
+import getpass
+import os
+import re
+import shutil
+import subprocess
+import textwrap
 from datetime import datetime
 from email import policy
 from email.message import EmailMessage
 from email.parser import BytesParser
 from email.utils import format_datetime, make_msgid
-import getpass
 from html.parser import HTMLParser
-import os
 from pathlib import Path
-import re
-import subprocess
-import textwrap
 
+IS_WINDOWS = os.name == "nt"
 SENDMAIL = "/usr/sbin/sendmail"
 ADDRESS_FILE = Path(
     os.environ.get(
@@ -48,6 +50,11 @@ def configured_sender_address():
                 if re.fullmatch(r"[^@\s:]+@[^@\s:]+", address):
                     return address
                 raise ValueError("Invalid sSMTP sender mapping for the current user")
+
+    if IS_WINDOWS:
+        raise RuntimeError(
+            "No report recipient configured and no supported Windows sender mapping found; set AI_AGENT_REPORT_ADDRESS_FILE or configure the approved connector route"
+        )
 
     try:
         lines = SSMTP_CONFIG_FILE.read_text(encoding="utf-8").splitlines()
@@ -164,8 +171,11 @@ def validate(raw):
 
 def send(raw):
     validate(raw)
+    sendmail = os.environ.get("AI_AGENT_SENDMAIL", SENDMAIL)
+    if IS_WINDOWS and not shutil.which(sendmail) and sendmail == SENDMAIL:
+        raise RuntimeError("Local sendmail transport unavailable on Windows; use an approved connector route or configure AI_AGENT_SENDMAIL to a compatible transport")
     result = subprocess.run(
-        [SENDMAIL, "-v", "-i", "-t"],
+        [sendmail, "-v", "-i", "-t"],
         input=raw.replace(b"\r\n", b"\n"),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

@@ -66,7 +66,6 @@ fi
 
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=helpers/jq-family.sh
-# shellcheck source=helpers/jq-family.sh
 source "$repo/helpers/jq-family.sh"
 if json_query_init; then
   printf 'JSON backend: %s (required behavior probes passed).\n' "$(json_query_backend)" >&2
@@ -207,4 +206,44 @@ for agent in "${active[@]}"; do
     python3.12 "$repo/helpers/install-request-hooks.py" --agent "$agent" --repo "$repo"
   fi
 done
+
+configure_windows_links_if_wsl() {
+  # Best-effort: when running inside WSL with Windows interop, create Windows-side
+  # links to this canonical WSL checkout (uses detected/default WSL context, not hardcoded distro).
+  if [[ "${AI_AGENT_CONFIG_NO_WIN_CALLBACK:-}" == 1 ]]; then
+    return 0
+  fi
+  if [[ -z "${WSL_DISTRO_NAME:-}" ]] && [[ ! -r /proc/sys/fs/binfmt_misc/WSLInterop ]]; then
+    return 0
+  fi
+  command -v wslpath >/dev/null 2>&1 || return 0
+  local ps cmd win_repo win_home distro
+  ps="$(command -v powershell.exe || true)"
+  cmd="$(command -v cmd.exe || true)"
+  [[ -n "$ps" || -n "$cmd" ]] || return 0
+  distro="${WSL_DISTRO_NAME:-}"
+  win_repo="$(wslpath -w -- "$repo" 2>/dev/null || true)"
+  [[ -n "$win_repo" ]] || return 0
+  if [[ -z "$distro" ]]; then
+    distro="$(basename "$(dirname "$(dirname "$win_repo")")" 2>/dev/null || true)"
+  fi
+  # Resolve Windows user profile/home best-effort
+  win_home=""
+  if [[ -n "$cmd" ]]; then
+    win_home="$($cmd /c "echo %USERPROFILE%" 2>/dev/null | tr -d '\r' || true)"
+  fi
+  if [[ -z "$win_home" && -n "$ps" ]]; then
+    win_home="$($ps -NoProfile -Command "\$env:USERPROFILE" 2>/dev/null | tr -d '\r' || true)"
+  fi
+  [[ -n "$win_home" ]] || return 0
+  printf 'WSL detected (%s); attempting best-effort Windows-side link configuration for %s\n' "${distro:-default}" "$win_home" >&2
+  # Actual link creation is delegated to setup.ps1 when available from Windows side.
+  # Set guard env to prevent setup.ps1 from calling back into WSL setup.sh.
+  if [[ -n "$ps" && -f "$repo/setup.ps1" ]]; then
+    "$ps" -NoProfile -ExecutionPolicy Bypass -Command "\$env:AI_AGENT_CONFIG_NO_WSL_CALLBACK='1'; & '$win_repo\\setup.ps1' -Request" >/dev/null 2>&1 || \
+      printf 'Windows-side setup.ps1 delegation skipped/failed; configure Windows links manually if needed.\n' >&2
+  fi
+}
+
+configure_windows_links_if_wsl
 printf 'Setup links complete; the calling agent must apply shared policies and verify client configuration separately.\n' >&2

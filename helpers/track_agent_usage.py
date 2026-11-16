@@ -2,12 +2,13 @@
 """Record an agent's quota snapshot and estimate whether it may run out today."""
 
 import argparse
-from datetime import datetime, time, timedelta
 import json
 import os
-from pathlib import Path
 import re
+import stat
 import sys
+from datetime import datetime, time, timedelta
+from pathlib import Path
 
 DATA_FILE = Path(__file__).resolve().parents[1] / ".agent-usage.jsonl"
 MINIMUM_TREND_SECONDS = 300
@@ -15,6 +16,16 @@ METRICS = {
     "copilot": ("chat", "completions"),
     "codex": ("business individual limit", "individual limit", "5-hour", "weekly"),
 }
+
+
+def _private_mode(path):
+    if os.name == "nt":
+        try:
+            os.chmod(path, stat.S_IREAD | stat.S_IWRITE)
+        except OSError:
+            pass
+    else:
+        os.chmod(path, 0o600)
 
 
 def configure_agent(agent, labels):
@@ -79,12 +90,15 @@ def load_rows(path):
 def save_rows(path, rows):
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = "".join(json.dumps(row, separators=(",", ":")) + "\n" for row in rows)
-    descriptor = os.open(path, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+    flags = os.O_CREAT | os.O_APPEND | os.O_WRONLY
+    mode = 0o600 if os.name != "nt" else 0
+    descriptor = os.open(path, flags, mode)
     try:
-        os.fchmod(descriptor, 0o600)
+        _private_mode(path)
         os.write(descriptor, encoded.encode("utf-8"))
     finally:
         os.close(descriptor)
+    _private_mode(path)
 
 
 def analyze(rows, agent, now):

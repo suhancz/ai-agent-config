@@ -1,11 +1,11 @@
 import json
-from datetime import datetime, timedelta, timezone
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from track_agent_usage import analyze, load_rows, parse_snapshot, save_rows
 
@@ -32,7 +32,7 @@ class AgentUsageTests(unittest.TestCase):
         self.assertEqual(metrics["weekly"]["remaining_percent"], 90)
 
     def test_warns_when_linear_usage_reaches_zero_before_midnight(self):
-        now = datetime(2026, 10, 14, 12, 20, tzinfo=timezone.utc)
+        now = datetime(2026, 10, 14, 12, 20, tzinfo=UTC)
         rows = [
             {
                 "timestamp": "2026-10-14T12:00:00+00:00",
@@ -51,7 +51,7 @@ class AgentUsageTests(unittest.TestCase):
         self.assertTrue(result["chat"].startswith("WARNING: Copilot chat"))
 
     def test_quota_replenishment_starts_a_new_trend(self):
-        now = datetime(2026, 10, 14, 12, 40, tzinfo=timezone.utc)
+        now = datetime(2026, 10, 14, 12, 40, tzinfo=UTC)
         rows = [
             {
                 "timestamp": "2026-10-14T12:00:00+00:00",
@@ -121,41 +121,43 @@ class AgentUsageTests(unittest.TestCase):
             (0, 5, False, "collecting a second Copilot sample"),
         )
         for hour, minute, expected_warning, expected_text in cases:
-            with self.subTest(hour=hour, minute=minute):
-                with tempfile.TemporaryDirectory() as directory:
-                    path = Path(directory) / ".agent-usage.jsonl"
-                    now = datetime(2026, 10, 14, hour, minute, tzinfo=timezone.utc)
-                    rows = [
-                        {
-                            "timestamp": (now - timedelta(minutes=20)).isoformat(),
-                            "agent": "copilot",
-                            "quota": "chat",
-                            "remaining_percent": 30,
-                        },
-                        {
-                            "timestamp": (now - timedelta(minutes=10)).isoformat(),
-                            "agent": "copilot",
-                            "quota": "chat",
-                            "remaining_percent": 20,
-                        },
-                    ]
-                    save_rows(path, rows)
-                    result = subprocess.run(
-                        [
-                            sys.executable, "-c", driver, now.isoformat(),
-                            "--agent", "copilot", "--data-file", str(path),
-                        ],
-                        cwd=Path(__file__).resolve().parent,
-                        env=dict(os.environ, TZ="UTC", AI_AGENT_QUOTA_METRICS=""),
-                        input="Copilot credits: AI credit quota — chat 10% remaining.",
-                        capture_output=True, text=True, check=True,
-                    )
-                    latest_chat = [
-                        row for row in load_rows(path) if row["quota"] == "chat"
-                    ][-1]
-                    self.assertEqual(latest_chat["forecast_warning"], expected_warning)
-                    self.assertIn(expected_text, latest_chat["forecast"])
-                    self.assertIn(expected_text, result.stdout)
+            with (
+                self.subTest(hour=hour, minute=minute),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                path = Path(directory) / ".agent-usage.jsonl"
+                now = datetime(2026, 10, 14, hour, minute, tzinfo=UTC)
+                rows = [
+                    {
+                        "timestamp": (now - timedelta(minutes=20)).isoformat(),
+                        "agent": "copilot",
+                        "quota": "chat",
+                        "remaining_percent": 30,
+                    },
+                    {
+                        "timestamp": (now - timedelta(minutes=10)).isoformat(),
+                        "agent": "copilot",
+                        "quota": "chat",
+                        "remaining_percent": 20,
+                    },
+                ]
+                save_rows(path, rows)
+                result = subprocess.run(
+                    [
+                        sys.executable, "-c", driver, now.isoformat(),
+                        "--agent", "copilot", "--data-file", str(path),
+                    ],
+                    cwd=Path(__file__).resolve().parent,
+                    env=dict(os.environ, TZ="UTC", AI_AGENT_QUOTA_METRICS=""),
+                    input="Copilot credits: AI credit quota — chat 10% remaining.",
+                    capture_output=True, text=True, check=True,
+                )
+                latest_chat = [
+                    row for row in load_rows(path) if row["quota"] == "chat"
+                ][-1]
+                self.assertEqual(latest_chat["forecast_warning"], expected_warning)
+                self.assertIn(expected_text, latest_chat["forecast"])
+                self.assertIn(expected_text, result.stdout)
 
 
 if __name__ == "__main__":

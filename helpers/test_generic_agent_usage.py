@@ -1,11 +1,11 @@
 """Generic-agent quota regression tests."""
-from datetime import datetime, timedelta
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 import track_agent_usage as usage
@@ -28,9 +28,8 @@ class GenericQuotaTests(unittest.TestCase):
 
     def test_rejects_invalid_identity_and_builtin_replacement(self):
         for agent, labels in (("../bad", ["daily"]), ("opencode", ["bad\nlabel"]), ("codex", ["other"])):
-            with self.subTest(agent=agent):
-                with self.assertRaises(ValueError):
-                    usage.configure_agent(agent, labels)
+            with self.subTest(agent=agent), self.assertRaises(ValueError):
+                usage.configure_agent(agent, labels)
 
     def test_forecast_is_agent_isolated(self):
         now = datetime.now().astimezone().replace(hour=12, minute=0, second=0, microsecond=0)

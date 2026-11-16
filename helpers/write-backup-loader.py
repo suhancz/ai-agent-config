@@ -4,13 +4,24 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import re
+import stat
 import subprocess
 import tempfile
+from pathlib import Path
 
 BEGIN = "<!-- BEGIN managed setup-backup loader -->"
 END = "<!-- END managed setup-backup loader -->"
+
+
+def _private_mode(path):
+    if os.name == "nt":
+        try:
+            os.chmod(path, stat.S_IREAD | stat.S_IWRITE)
+        except OSError:
+            pass
+    else:
+        os.chmod(path, 0o600)
 
 
 def write_loader(source, target):
@@ -71,7 +82,7 @@ def write_loader(source, target):
             raise ValueError("Private loader markers are out of order")
         updated = current[:start] + block + current[stop + len(END):]
         if updated == current:
-            destination.chmod(0o600)
+            _private_mode(destination)
             return
     else:
         updated = block + "\n"
@@ -79,10 +90,12 @@ def write_loader(source, target):
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             stream.write(updated)
+        _private_mode(name)
         os.replace(name, destination)
     finally:
         if os.path.exists(name):
             os.unlink(name)
+    _private_mode(destination)
 
 
 def main():

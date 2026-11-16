@@ -1,9 +1,9 @@
 """Regression checks: python3.12 -m unittest discover -s helpers -p test_completion_report.py"""
 
 import importlib.util
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -106,9 +106,11 @@ class ReportTests(unittest.TestCase):
             stdout=b"",
             stderr=b"[<-] 250 OK\n",
         )
-        with patch.object(report.subprocess, "run", return_value=result):
-            with self.assertRaises(RuntimeError):
-                report.send(raw)
+        with (
+            patch.object(report.subprocess, "run", return_value=result),
+            self.assertRaises(RuntimeError),
+        ):
+            report.send(raw)
 
 
 if __name__ == "__main__":

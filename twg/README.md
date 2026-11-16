@@ -1,6 +1,6 @@
 # Standalone Teamwork Graph CLI
 
-This is a shared tool, not another AI agent. See [shared setup](../SETUP.md), the [integration policy](../ATLASSIAN.md), and the [Rovo adapter](../rovo/README.md) for its separately managed bundle.
+This is a shared tool, not another AI agent. See [shared setup](../SETUP.md) (including Windows `setup.ps1` and WSL-shared behavior), the [integration policy](../ATLASSIAN.md), and the [Rovo adapter](../rovo/README.md) for its separately managed bundle.
 
 Selector: `twg`. The private `${XDG_CONFIG_HOME:-$HOME/.config}/ai-agent-config/twg-bin` file contains one absolute path to an approved standalone executable; keep it user-only. An existing agents allowlist must also include twg. Without an allowlist, the selector file enables it. Missing executables are not installed.
 
