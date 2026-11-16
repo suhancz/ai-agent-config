@@ -5,9 +5,9 @@ $repo = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $setup = Join-Path $repo 'setup.ps1'
 $setupSh = Join-Path $repo 'setup.sh'
 if (Test-Path $setup) {
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $setup --request 1>&2
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $setup -Request
 } elseif (Get-Command bash -ErrorAction SilentlyContinue) {
-  & bash $setupSh --request 1>&2
+  & bash $setupSh --request
 }
 $files = @('AGENTS.md','memory/MEMORY.md','MAIL-ROUTING.md','GIT-CONFIG-SAFETY.md','ATLASSIAN.md','rovo/AGENTS.md')
 foreach ($f in $files) {

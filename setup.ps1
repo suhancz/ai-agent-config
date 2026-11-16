@@ -30,12 +30,12 @@ function Test-Dependency([string]$Name,[string]$Purpose,[bool]$Required=$false) 
 }
 
 foreach ($u in @('git','python','python3.12')) { }
-Test-Dependency 'git' 'required for backup-loader tracked-file safety checks and repository operations' $true
+Test-Dependency -Name 'git' -Purpose 'required for backup-loader tracked-file safety checks and repository operations' -Required $true
 $pyCmd = Get-Command python3.12 -ErrorAction SilentlyContinue
 if (-not $pyCmd) { $pyCmd = Get-Command python -ErrorAction SilentlyContinue }
 if (-not $pyCmd) { $missing += 'python3.12/python: required for Python helpers and instruction setup'; $requiredMissing = $true }
 foreach ($a in @('codex','copilot','opencode','qwen','kilo','rovo','pplx','wsl')) {
-  Test-Dependency $a "$a integration (only needed when selected or for WSL-shared setup)" $false
+  Test-Dependency -Name $a -Purpose "$a integration (only needed when selected or for WSL-shared setup)" -Required $false
 }
 
 function Get-DefaultWslDistro {

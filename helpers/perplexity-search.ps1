@@ -10,7 +10,7 @@ if (-not (Test-Path $agents) -or -not (Select-String -Path $agents -SimpleMatch 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repo = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $setup = Join-Path $repo 'setup.ps1'
-if (Test-Path $setup) { & powershell -NoProfile -ExecutionPolicy Bypass -File $setup --request 1>&2 }
+if (Test-Path $setup) { & powershell -NoProfile -ExecutionPolicy Bypass -File $setup -Request }
 $pplx = Get-Command pplx -ErrorAction SilentlyContinue
 if (-not $pplx) { Write-Error 'Configured pplx CLI required.'; exit 1 }
 & $pplx.Source @Args
