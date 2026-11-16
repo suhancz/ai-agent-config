@@ -14,7 +14,7 @@ if ($Help) { Usage; exit 0 }
 if ($BackupExisting -and $Request) { Usage; [Console]::Error.WriteLine('Choose at most one mode.'); exit 2 }
 
 $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
-try { $repo = (Resolve-Path $repo).Path } catch {}
+try { $repo = (Resolve-Path $repo).Path } catch { $repo = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $configHome = if ($env:XDG_CONFIG_HOME) { $env:XDG_CONFIG_HOME } else { Join-Path $env:USERPROFILE '.config' }
 $configDir = Join-Path $configHome 'ai-agent-config'
 $backupExistingMode = [bool]$BackupExisting
@@ -49,7 +49,9 @@ function Get-DefaultWslDistro {
     $text = ($raw | Out-String) -replace "`0", ""
     $lines = $text -split "(`r`n|`n|`r)" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
     if ($lines.Count -gt 0) { return $lines[0] }
-  } catch { }
+  } catch {
+    return $null
+  }
   return $null
 }
 

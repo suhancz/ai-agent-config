@@ -13,7 +13,7 @@ if (-not $node) {
 }
 
 $copilotPath = $copilot.Source
-try { $copilotPath = (Resolve-Path $copilotPath).Path } catch {}
+try { $copilotPath = (Resolve-Path $copilotPath).Path } catch { $copilotPath = $copilot.Source }
 $prefix = Split-Path -Parent (Split-Path -Parent $copilotPath)
 $sdk = Join-Path $prefix 'lib/node_modules/@github/copilot/node_modules/@github/copilot-linux-x64/copilot-sdk/index.js'
 if (-not (Test-Path $sdk)) {
@@ -28,7 +28,10 @@ if (-not (Test-Path $sdk)) {
         (Join-Path $root '@github/copilot-sdk/index.js')
       )
       foreach ($c in $candidates) { if (Test-Path $c) { $sdk = $c; break } }
-    } catch {}
+    } catch {
+      # Best effort: continue with default SDK path and fail below if unavailable.
+      $null = $_
+    }
   }
 }
 if (-not (Test-Path $sdk)) {

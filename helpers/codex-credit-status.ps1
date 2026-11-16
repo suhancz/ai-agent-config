@@ -18,7 +18,10 @@ if ($bash -and (Test-Path $sh)) {
   try {
     & bash $sh
     exit $LASTEXITCODE
-  } catch { }
+  } catch {
+    # Fall through to best-effort/unavailable path when bash helper cannot run.
+    $null = $_
+  }
 }
 
 # Native PowerShell path: attempt lightweight inspection of local session snapshots if jq/python available.
