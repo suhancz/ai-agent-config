@@ -12,6 +12,7 @@ json_query_init() {
     result="$(printf '%s\n' '{}' '{"id":2,"result":{"rateLimits":{"x":0}}}' |
       timeout 3 "$candidate" -c 'select(.id == 2 and .result.rateLimits? != null) | .result.rateLimits' 2>/dev/null)" || continue
     [[ "$result" == '{"x":0}' ]] || continue
+    # shellcheck disable=SC2016
     result="$(printf '%s\n' '{"primary":{"used_percent":0},"credits":{"unlimited":false}}' |
       timeout 3 "$candidate" -r --arg window primary '(.[$window].usedPercent // .[$window].used_percent // empty), (.credits.unlimited // false)' 2>/dev/null)" || continue
     [[ "$result" == $'0\nfalse' ]] || continue

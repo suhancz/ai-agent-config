@@ -66,6 +66,7 @@ fi
 
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=helpers/jq-family.sh
+# shellcheck source=helpers/jq-family.sh
 source "$repo/helpers/jq-family.sh"
 if json_query_init; then
   printf 'JSON backend: %s (required behavior probes passed).\n' "$(json_query_backend)" >&2
@@ -162,6 +163,7 @@ for agent in "${active[@]}"; do
       link_file "$repo/helpers/copilot-credit-status.mjs" "$HOME/code/.codex-tools/copilot-credit-status.mjs"
       ;;
     opencode)
+      # shellcheck source=helpers/opencode-setup.sh
       source "$repo/helpers/opencode-setup.sh"
       setup_opencode "$repo" "$request"
       ;;

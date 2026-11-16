@@ -12,6 +12,7 @@ unavailable() {
 
 helper_file="$(readlink -f -- "${BASH_SOURCE[0]}")"
 # shellcheck source=helpers/jq-family.sh
+# shellcheck source=helpers/jq-family.sh
 source "$(dirname -- "$helper_file")/jq-family.sh"
 if ! json_query_init; then
   unavailable
@@ -119,6 +120,7 @@ if [[ -n "${individual_remaining}" ]]; then
 fi
 
 for window in primary secondary; do
+  # shellcheck disable=SC2016
   used_percent="$(json_query -r --arg window "${window}" '.[$window].usedPercent // .[$window].used_percent // empty' <<<"${rate_limits}")"
   if [[ -z "${used_percent}" ]]; then
     continue
@@ -130,7 +132,9 @@ for window in primary secondary; do
     if (remaining > 100) remaining = 100;
     print remaining;
   }')"
+  # shellcheck disable=SC2016
   window_minutes="$(json_query -r --arg window "${window}" '.[$window].windowMinutes // .[$window].window_minutes // empty' <<<"${rate_limits}")"
+  # shellcheck disable=SC2016
   reset_epoch="$(json_query -r --arg window "${window}" '.[$window].resetsAt // .[$window].resets_at // .[$window].reset_at // empty' <<<"${rate_limits}")"
 
   parts+=("$(window_label "${window_minutes}") $(format_number "${remaining_percent}")% remaining ($(format_reset "${reset_epoch}"))")
