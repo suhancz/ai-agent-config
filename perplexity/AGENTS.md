@@ -41,13 +41,23 @@ Respect the current platform's confirmation requirements for every external writ
 
 Use actual local time when a reliable clock is available; distinguish the supplied query timestamp from completion time. If no current clock is available, say so. Never invent subtask timestamps.
 
-Record only the answering agent's own supported quota snapshots through the existing private tracker when available. Keep usage logs ignored and unpublished. Do not manufacture samples or warnings. If no supported Perplexity quota interface is available, state: Perplexity credits: percentage and renewal unavailable. Forecast unavailable.
+Record only the answering agent's own supported quota snapshots through the existing private tracker when available. Keep usage logs ignored and unpublished. Do not manufacture samples or warnings.
 
 Include an agent-identifying footer with SSH access state, quota/reset status, and forecast limitations in completion/status reports and applicable user-facing responses. Do not confuse an inaccessible SSH agent with an empty one.
 
 Perform Jira checks through the approved authenticated tool only when available and relevant under canonical instructions. Report access gaps and do not bypass organizational security controls.
 
 Perplexity cannot guarantee persistent instructions across all future chats, operate other agents continuously, execute commands on the user's server through a mail connector, or inspect the user's local SSH agent. Explicitly distinguish configured policy from installed and tested automation.
+
+## Computer usage meter and forecast
+
+Perplexity Pro includes weekly Computer usage with a usage meter, available on desktop and mobile. Treat that meter as the supported authenticated quota interface for Computer tasks. Its location is expected under the account's usage and credits settings as the included Pro allowance; verify the label in the live interface before relying on it, and do not assume it applies to ordinary Ask or Search chats.
+
+When the percentage remaining and reset time are visible in the user's authenticated session, report both with the sample time and record the snapshot with `helpers/track_agent_usage.py --agent perplexity --metric "Included in Pro"`, passing text such as `Included in Pro 72% remaining` on stdin. The helper is plain Python 3, uses only the standard library, and runs unchanged on Windows and Linux (use `python` or `py -3` on Windows and `python3` on Linux). It writes only to the ignored usage log and projects exhaustion before local midnight from same-day samples. A weekly allowance has no calendar-day reset, so state that the forecast covers only the current day and give the weekly reset time separately.
+
+Do not raise effort, choose a non-default model, enable auto-refill, or spend purchased credits to complete a task unless the user explicitly approves that spend. Treat paid credit balance as a separate figure from the included weekly allowance, and never report another agent's quota as Perplexity's.
+
+If the meter cannot be read (for example, in a chat without Computer or without access to the authenticated settings page), state: Perplexity credits: percentage and renewal unavailable. Forecast unavailable. Do not manufacture a sample.
 
 ## Repository changes
 
