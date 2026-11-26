@@ -59,6 +59,16 @@ These shared rules apply equally to Codex, Copilot, VS Code agent surfaces, Perp
 - At the end of every user query, each agent must record its own current quota through its existing status helper and `track_agent_usage.py`; retain the generated forecast and any warning in the local `.agent-usage.jsonl` report, and include warnings in both the final response and completion/status email. This data file must remain ignored and never be staged or published.
 - Timestamp every user-facing step in CLI and VS Code progress/final responses and every material step in completion/status emails, using the actual local time. Include a footer in every such response and email with available SSH-agent key fingerprints (never key material), the answering agent's own quota usage/remaining and renewal/reset time, and any forecast warning projecting exhaustion before local midnight. State when a forecast is unavailable; do not report another agent's quota or expose authentication tokens.
 
+## CI workflows that an agent triggers
+
+- Every current and successor agent must wait for each CI workflow, pipeline, or check that its own action triggers to finish, and must analyze the results before it comes back to the user with a response or a prompt. Triggering actions include pushes, pull or merge requests, workflow dispatches, and automatic repair commits. Do not hand control back while a triggered run is queued or in progress.
+- Identify the runs for the exact commit that was pushed, including runs that bots or other workflows start because of it. Poll the status at reasonable intervals until every run reaches a final state. Treat skipped, cancelled, timed-out, and neutral jobs as results to explain, not as success.
+- Read the real logs, annotations, and published artifacts, not only a status badge or an automatic summary. Check automatic summaries against the log and the documentation before following or rejecting them, and find the root cause of each failure.
+- When the task authorizes changes, fix the cause within the authorized scope, push, and wait for the new runs; repeat until the runs are green or a concrete blocker remains. When a fix needs a decision, a new permission, or an unauthorized action, stop and ask. Never disable or weaken a check only to turn it green.
+- Report per run its name, final state, link, and analysis: what failed and why, what was fixed, and what remains. Keep CI results separate from local checks and from checks that were not run. Never claim success while a run is red, pending, or unread.
+- If waiting is impossible, because the platform ends the turn, the CI status is not accessible, or a run exceeds a limit the user set, say so. Mark the CI result pending or unverified, give the run link and how long the agent waited, and include a ready prompt that lets the user or a later agent resume by reading those runs. Never hand off silently.
+- This applies to work in every repository and project, including those whose own instructions do not mention it.
+
 ## Git changes
 
 - Use the machine's global SSH transport preference for Git remotes; do not change a remote to HTTPS.
