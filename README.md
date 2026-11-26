@@ -10,9 +10,10 @@ No credentials, private addresses, account identities, endpoints, user info, run
 
 | File | Purpose |
 | --- | --- |
-| [AGENTS.md](AGENTS.md) | Main rules: loading, permissions, privacy, timestamps, Git workflow |
+| [AGENTS.md](AGENTS.md) | Load list, instruction-loading rules, and pointers to the instructions directory |
 | [Global preferences](instructions/global-preferences.instructions.md) | Shared preferences entry point |
-| [All-agent contract](instructions/all-agents.instructions.md) | Required behavior: reporting, quota, budget checks, Git, CI wait, trusted suggestions |
+| [All-agent contract](instructions/all-agents.instructions.md) | Required behavior: reporting, quota, budget checks, fetch first, instruction placement, Git, CI wait, trusted suggestions |
+| [Operating policies](instructions/operating-policies.instructions.md) | Preference application, timestamps, mail routing, memory and sensitive data, managed files, Git changes |
 | [Shared memory](memory/MEMORY.md) | Durable non-private preferences and backup-loader policy |
 | [Setup](SETUP.md) | Host selection, installation, request-time refresh, compatibility |
 | [Reporting](REPORTING.md) | Completion reports, mail config, quota handling |

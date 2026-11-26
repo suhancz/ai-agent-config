@@ -8,6 +8,8 @@ Apply this contract to every current and successor agent across every project, r
 - Reporting/email: produce completion or blocked-status HTML reports with agent/model metadata, request/outcome, revisions, verification, limitations, SSH status, quota/reset, forecast warnings, and submission evidence. Use the authorized same-context connector first, existing SMTP helper second; actual sender equals the sole recipient, with no CC/BCC. Preserve mandatory approval, MIME validation, and duplicate-delivery protection. Do not silently waive reporting when the primary task succeeds.
 - Quota/forecast: sample only the answering agent through supported authenticated status sources. Reuse existing built-in status helpers or the generic tracker interface below. Do not substitute another agent's balance, context usage, token counts, estimated costs, or shared organization pools for account quota. Unknown quota/reset/forecast stays unavailable.
 - Budget checks: run the token and quota prediction check before every action as well as after it. When the forecast shows the full action cannot be finished, do what can still be finished safely, save the rest to the WIP/TODO status file in the repository being worked on, and push it to origin before the allowance runs out. Follow the budget section below.
+- Fetch first: fetch the verified origin before every action, fast-forward the checkout only when the working tree is clean and there are no unpushed commits, and never pull over local changes. Follow the fetch section below.
+- Instruction placement: put AI instructions and preferences that are not specific to one agent into the common instructions directory, not into the root AGENTS.md. Follow the placement section below.
 - Tickets/Jira: read ATLASSIAN.md, use an authorized available work-item surface, inspect supported commands before use, check assigned work when required, and verify relevant ticket assignee/status. Use a known active ticket key and a fresh timestamp in remote backup names; never guess ticket keys or use writes as connectivity tests.
 - Memory/privacy: read current shared memory every request; persist eligible durable non-sensitive lessons. Preserve private-backup precedence and explicit exclusions. Never publish raw transcripts, private identifiers, credentials, endpoints, account data, overrides, work data, or runtime samples.
 - Git/setup: preserve SSH transport, upstream freshness checks, dirty/concurrent work, conflict-safe symlinks, validation, modes, and host selection. Do not install CLIs or copy credentials implicitly. When coding, work in a task-specific branch, do as small tasks as possible at once, maintain a WIP/TODO status file for failsafe resumes, and push after each successful task. Before creating a PR/MR, remove the WIP/TODO status file and squash commits as needed so the PR/MR presents a clean final history (keep one final commit where supported; an expanded already-published PR may be squash-merged by its owner). Respect the user's task-specific review and merge requirements; do not merge or enable auto-merge without required authorization.
@@ -48,6 +50,22 @@ Apply this contract to every current and successor agent across every project, r
 - This section takes precedence over the rule that removes the WIP/TODO status file before a pull request or merge request, but only for work that is handed off unfinished: keep the file in that case and say so. Remove it as usual once the work is complete.
 - Report the forecast, what was completed, what was saved, and where it was pushed. State separately anything that was not saved or not pushed.
 - This applies to work in every repository and project, including those whose own instructions do not mention it.
+
+## Fetching origin first
+
+- Every current and successor agent fetches the verified origin before every action and compares the local revision with the fetched one. Fast-forward the checkout only when the working tree is clean and there are no unpushed local commits.
+- Never run a pull that merges, rebases, resets, or overwrites local changes. When the checkout has local changes or has diverged from origin, keep the local version, compare it with the fetched revision, and report which one applied, as the local-changes rule in the root AGENTS.md requires.
+- Before creating or publishing a task branch, fetch again and base the branch on the latest default branch. Before pushing, verify that the remote branch is still in the expected state.
+- A checkout that cannot be updated safely is reported as stale, together with the revision that was actually used.
+- This applies to work in every repository and project, including those whose own instructions do not mention it.
+
+## Where instructions live
+
+- Every current and successor agent puts AI instructions and preferences that are not specific to one agent or product into the common instructions directory, in the file whose scope fits. Use all-agents.instructions.md for rules that apply to every agent. Do not add such rules to the root AGENTS.md, the README, or an adapter file.
+- Instructions that are specific to one agent or product go to that agent's adapter or entry instructions, which the adapter index links.
+- The root AGENTS.md keeps only the rules that define how instructions are found and loaded, plus short pointers with links into the instructions directory. A general rule that still sits in the root file moves into the instructions directory the next time it is changed, and a pointer stays behind.
+- Keep memory/MEMORY.md and the README file map in step with every such change. The shared preferences entry point makes every agent read the instructions directory on every request, so this applies to every session.
+- Sensitive-data exclusions, platform confirmation gates, and the Git workflow rules still apply to these changes.
 
 ## Executable intent and all-agent script maintenance
 
