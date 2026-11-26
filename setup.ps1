@@ -122,7 +122,7 @@ function Set-FileLinkManaged([string]$Source,[string]$Target) {
 }
 
 function Set-InstructionLinkManaged([string]$Source,[string]$Target) {
-  Link-FileManaged -Source $Source -Target $Target
+  Set-FileLinkManaged -Source $Source -Target $Target
   & $pyCmd.Source (Join-Path $sourceRepo 'helpers/write-backup-loader.py') --source $Source --target $Target
   [Console]::Error.WriteLine("Calling agent: whenever reading $Target, read its adjacent .local-overrides.md loader and listed private instruction backups; apply the backup policy in memory/MEMORY.md. Client loading is not verified by setup.")
 }
