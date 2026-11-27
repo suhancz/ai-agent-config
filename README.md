@@ -12,8 +12,13 @@ No credentials, private addresses, account identities, endpoints, user info, run
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | Load list, instruction-loading rules, and pointers to the instructions directory |
 | [Global preferences](instructions/global-preferences.instructions.md) | Shared preferences entry point |
-| [All-agent contract](instructions/all-agents.instructions.md) | Required behavior: reporting, quota, budget checks, work-status marks, lint-compliant writing, fetch first, instruction placement, Git, CI wait, trusted suggestions |
-| [Operating policies](instructions/operating-policies.instructions.md) | Preference application, timestamps, mail routing, memory and sensitive data, managed files, Git changes |
+| [All-agent contract](instructions/all-agents.instructions.md) | Entry file with the required behavior: reporting, quota, budget checks, work-status marks, lint-compliant writing, fetch first, instruction placement, Git, CI wait, trusted suggestions, and the links to its section files |
+| [CI and trusted suggestions](instructions/all-agents-ci-and-suggestions.instructions.md) | Section of the all-agent contract: waiting for CI runs, suggestions from trusted sources |
+| [Budget and work status](instructions/all-agents-budget-and-status.instructions.md) | Section of the all-agent contract: budget checks, unfinished-work handoff, work-status marks |
+| [Lint-compliant writing](instructions/all-agents-lint-writing.instructions.md) | Section of the all-agent contract: writing to the linters in advance |
+| [Fetch and placement](instructions/all-agents-fetch-and-placement.instructions.md) | Section of the all-agent contract: fetching origin first, where instructions live |
+| [Scripts and quota](instructions/all-agents-scripts-and-quota.instructions.md) | Section of the all-agent contract: executable intent, generic quota and forecast interface |
+| [Operating policies](instructions/operating-policies.instructions.md) | Preference application, timestamps, mail routing, memory and sensitive data, managed files, Git changes, small files and split status files |
 | [Shared memory](memory/MEMORY.md) | Durable non-private preferences and backup-loader policy |
 | [Setup](SETUP.md) | Host selection, installation, request-time refresh, compatibility |
 | [Reporting](REPORTING.md) | Completion reports, mail config, quota handling |
