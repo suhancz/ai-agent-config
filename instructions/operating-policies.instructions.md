@@ -52,3 +52,10 @@ Every current and successor agent must read and apply MAIL-ROUTING.md at task st
 - When coding, work in a task-specific branch, do as small tasks as possible at once, maintain a WIP/TODO status file for failsafe resumes, and push after each successful task. Before creating a PR/MR, remove the WIP/TODO status file and squash commits as needed so the PR/MR presents a clean final history (keep one final commit where supported). Before rewriting a remote branch, verify its expected state, preserve a recovery reference when useful, and use an explicit `--force-with-lease`.
 - For pull requests, use one final commit and write a concise reviewer-focused overview covering the problem, resulting behavior, validation, and limitations.
 - Push changes upstream when requested or required by the applicable global agent instructions.
+
+## Terse files and truncation-safe edits
+
+- Write status, TODO, memory and instruction files with as few words as possible while keeping the full meaning: cut filler, repetition and history that no longer matters; keep facts, IDs, numbers and decisions.
+- Tools may return only the first part of a large file (about 40 KB) and may write only whole files. Always work around this risk. Before editing, compare the size from the directory listing with what you received. If the read looks cut off or the sizes differ, read the rest first (raw URL at a commit SHA, in parts, or a clone). Never push a file built from a partial read.
+- Keep each agent-edited file under 30 KB; split a larger one by topic so one read gets all of it.
+- After a push, check the new size and the end of the file.

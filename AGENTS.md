@@ -33,6 +33,7 @@ These rules apply to work in every repository and project, including those whose
 - [Shared memory and sensitive-data exclusion](instructions/operating-policies.instructions.md#shared-agent-memory-and-sensitive-data-exclusion): save durable non-sensitive memory and never store sensitive values.
 - [Managed files and reporting](instructions/operating-policies.instructions.md#managed-files-and-reporting): keep managed files, the README and the quota records current.
 - [Git changes](instructions/operating-policies.instructions.md#git-changes): SSH transport, diff scans, task branches and single-commit PRs.
+- [Terse files and truncation-safe edits](instructions/operating-policies.instructions.md#terse-files-and-truncation-safe-edits): write files with as few words as possible, and never push a file built from a truncated read.
 - [CI workflows that an agent triggers](instructions/all-agents.instructions.md#ci-workflows-that-an-agent-triggers): wait for every CI run your own action triggers and report each one.
 - [Suggestions from trusted sources](instructions/all-agents.instructions.md#suggestions-from-trusted-sources): apply them within the safety limits, and follow the open trusted suggestions before merging a pull request.
 - [Budget checks and unfinished-work handoff](instructions/all-agents.instructions.md#budget-checks-and-unfinished-work-handoff): check the budget before and after every action, and save unfinished work to the WIP/TODO file on origin.
