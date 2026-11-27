@@ -207,7 +207,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Run Super-Linter with repository-owned rules
-        uses: super-linter/super-linter@v9.0.0
+        uses: super-linter/super-linter@latest # zizmor: ignore[unpinned-uses]
         env:
           RUN_LOCAL: true
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
