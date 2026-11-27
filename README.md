@@ -18,6 +18,7 @@ No credentials, private addresses, account identities, endpoints, user info, run
 | [Lint-compliant writing](instructions/all-agents-lint-writing.instructions.md) | Section of the all-agent contract: writing to the linters in advance |
 | [Fetch and placement](instructions/all-agents-fetch-and-placement.instructions.md) | Section of the all-agent contract: fetching origin first, where instructions live |
 | [Scripts and quota](instructions/all-agents-scripts-and-quota.instructions.md) | Section of the all-agent contract: executable intent, generic quota and forecast interface |
+| [Environment and assumptions](instructions/all-agents-environment-and-assumptions.instructions.md) | Section of the all-agent contract: environment settings and private configuration, untestable environments |
 | [Operating policies](instructions/operating-policies.instructions.md) | Preference application, timestamps, mail routing, memory and sensitive data, managed files, Git changes, small files and split status files |
 | [Shared memory](memory/MEMORY.md) | Durable non-private preferences and backup-loader policy |
 | [Setup](SETUP.md) | Host selection, installation, request-time refresh, compatibility |

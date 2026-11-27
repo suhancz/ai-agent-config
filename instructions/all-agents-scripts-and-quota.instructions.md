@@ -15,3 +15,11 @@ Every current and successor agent must maintain [.github/executable-files.txt](.
 ## Generic quota and forecast interface
 
 helpers/track_agent_usage.py accepts any validated agent slug. Codex/Copilot built-in labels remain unchanged. Other agents use repeated --metric options or AI_AGENT_QUOTA_METRICS, with fresh real status on stdin in the form `<metric> <percentage>% remaining`. Retain supported reset/renewal text in that status. No provider API, credentials, sampler, or renewal value is invented.
+
+Use stable non-identifying provider-and-window-specific labels; do not mix accounts/providers/windows under one label or reuse another agent's samples. Run once per actual snapshot. The existing private mode-0600 log, same-day trend, five-minute minimum, replenishment detection, and warning behavior are reused. No configured labels or parseable real percentage means no sample and no fabricated forecast. Earlier adapter text limiting tracker identifiers to two agents is superseded by this interface, not by a claim that every provider exposes quotas.
+
+```sh
+python3.12 helpers/track_agent_usage.py --agent opencode --metric provider-daily
+```
+
+The existing setup already symlinks this tracker and the shared SMTP report helper for selected agent surfaces. Use the canonical helper from the resolved checkout on surfaces without host symlinks. Cloud-only agents must report unavailable host execution. The agent still resolves and invokes authorized mail/Jira tools; the tracker does not send email or query tickets.

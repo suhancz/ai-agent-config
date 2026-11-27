@@ -11,6 +11,7 @@ The detailed sections of this contract live in the files below, so that no file 
 - [Lint-compliant writing](all-agents-lint-writing.instructions.md): writing lint-compliant changes in advance.
 - [Fetch and placement](all-agents-fetch-and-placement.instructions.md): fetching origin first; where instructions live.
 - [Scripts and quota](all-agents-scripts-and-quota.instructions.md): executable intent and all-agent script maintenance; generic quota and forecast interface.
+- [Environment and assumptions](all-agents-environment-and-assumptions.instructions.md): environment and private configuration; untestable environments.
 
 ## Required behavior
 
