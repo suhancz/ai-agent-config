@@ -8,6 +8,7 @@ Apply this contract to every current and successor agent across every project, r
 - Reporting/email: produce completion or blocked-status HTML reports with agent/model metadata, request/outcome, revisions, verification, limitations, SSH status, quota/reset, forecast warnings, and submission evidence. Use the authorized same-context connector first, existing SMTP helper second; actual sender equals the sole recipient, with no CC/BCC. Preserve mandatory approval, MIME validation, and duplicate-delivery protection. Do not silently waive reporting when the primary task succeeds.
 - Quota/forecast: sample only the answering agent through supported authenticated status sources. Reuse existing built-in status helpers or the generic tracker interface below. Do not substitute another agent's balance, context usage, token counts, estimated costs, or shared organization pools for account quota. Unknown quota/reset/forecast stays unavailable.
 - Budget checks: run the token and quota prediction check before every action as well as after it. When the forecast shows the full action cannot be finished, do what can still be finished safely, save the rest to the WIP/TODO status file in the repository being worked on, and push it to origin before the allowance runs out. Follow the budget section below.
+- Work-status marks: keep every WIP/TODO status file immediately up to date with exactly three item states: done, to do, and in progress. Mark verified work done at once; mark anything that waits for CI or that the agent is unsure about as in progress. Follow the work-status section below.
 - Fetch first: fetch the verified origin before every action, fast-forward the checkout only when the working tree is clean and there are no unpushed commits, and never pull over local changes. Follow the fetch section below.
 - Instruction placement: put AI instructions and preferences that are not specific to one agent into the common instructions directory, not into the root AGENTS.md. Follow the placement section below.
 - Tickets/Jira: read ATLASSIAN.md, use an authorized available work-item surface, inspect supported commands before use, check assigned work when required, and verify relevant ticket assignee/status. Use a known active ticket key and a fresh timestamp in remote backup names; never guess ticket keys or use writes as connectivity tests.
@@ -49,6 +50,19 @@ Apply this contract to every current and successor agent across every project, r
 - Keep sensitive data, raw transcripts, and private runtime state out of the file, as the sensitive-data rules require. Use generic descriptions or placeholders.
 - This section takes precedence over the rule that removes the WIP/TODO status file before a pull request or merge request, but only for work that is handed off unfinished: keep the file in that case and say so. Remove it as usual once the work is complete.
 - Report the forecast, what was completed, what was saved, and where it was pushed. State separately anything that was not saved or not pushed.
+- This applies to work in every repository and project, including those whose own instructions do not mention it.
+
+## Work-status marks and immediate updates
+
+- Every current and successor agent that keeps a WIP/TODO status file, or any other task list that tracks its work, marks each item with exactly one of three states: done (`[x]`), to do (`[ ]`), and in progress (`[ ] in progress:` at the start of the item text). There is no other state, such as probably done or partly done.
+- Mark an item done only when its success is verified: a test, a CI run, a log, or a check on the target system proved it. Work that was written but not yet proven is not done.
+- Whenever the agent is unsure that an item succeeded, the item is in progress. This includes work that waits for a CI run, work that was proven only for an older version of the change, work that depends on a system the agent cannot reach, and a result that is only reported by the user or by an automatic summary and not read in the real log. Say in the item what is missing for it to become done.
+- An in-progress item becomes done only when the missing proof exists. When a result turns red, the item goes back to in progress or to do together with the fix that is planned, never to done.
+- Update the status file immediately. Whatever is already done is marked done in the same step, and whatever starts waiting for CI or becomes uncertain is marked in progress in the same step. Do not batch status updates for later and do not leave the file behind the real state at the end of a task.
+- A commit that changes the work also carries the update of the status file. Do not push the status update as a separate commit afterwards. When a CI result arrives later, update the file in the next commit, or in a status-only commit when no other change is due.
+- Never record an item as done to make a report look complete. Report in-progress items separately from done items, together with what is missing.
+- A repository or the user may add more states or narrower rules in its own instructions only with the user's explicit approval; the three states here stay valid.
+- Keep sensitive data out of the file, as the sensitive-data rules require.
 - This applies to work in every repository and project, including those whose own instructions do not mention it.
 
 ## Fetching origin first

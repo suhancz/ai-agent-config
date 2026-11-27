@@ -36,5 +36,6 @@ These rules apply to work in every repository and project, including those whose
 - [CI workflows that an agent triggers](instructions/all-agents.instructions.md#ci-workflows-that-an-agent-triggers): wait for every CI run your own action triggers and report each one.
 - [Suggestions from trusted sources](instructions/all-agents.instructions.md#suggestions-from-trusted-sources): apply them within the safety limits, and follow the open trusted suggestions before merging a pull request.
 - [Budget checks and unfinished-work handoff](instructions/all-agents.instructions.md#budget-checks-and-unfinished-work-handoff): check the budget before and after every action, and save unfinished work to the WIP/TODO file on origin.
+- [Work-status marks and immediate updates](instructions/all-agents.instructions.md#work-status-marks-and-immediate-updates): mark verified items done at once, anything waiting for CI or unsure as in progress, and update the status file in the same commit as the change.
 - [Fetching origin first](instructions/all-agents.instructions.md#fetching-origin-first): fetch before every action and never pull over local changes.
 - [Where instructions live](instructions/all-agents.instructions.md#where-instructions-live): general instructions go to the instructions directory, agent-specific ones to the adapter.
