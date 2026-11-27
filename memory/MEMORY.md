@@ -34,7 +34,13 @@ Read this file whenever the user asks for something, together with the canonical
 
 ## Lessons from linter outputs
 
-Agents record here the generic, non-sensitive lessons that they learned from real linter outputs, one concise bullet per lesson, naming the linter, its version when known, and the rule or behavior, without file names, project names, or other identifying details. Check the existing bullets first and do not duplicate them. No lesson is recorded yet; the first entry replaces this sentence.
+Agents record here the generic, non-sensitive lessons that they learned from real linter outputs, one concise bullet per lesson, naming the linter, its version when known, and the rule or behavior, without file names, project names, or other identifying details. Check the existing bullets first and do not duplicate them.
+
+- `Super-Linter` with the tag `latest`: the bundled linters change between runs and trail the newest releases (one log showed `Checkov` 3.3.19 while 3.4.11 existed, and the Ansible linter on Python 3.14), so read the versions from a real log, not from project pages.
+- `NATURAL_LANGUAGE` (the terminology rule of `textlint`; the version is not shown in the log) checks every Markdown file, including status and instruction files, and a single finding fails the whole lint job. It applies only to a workflow that runs the `Super-Linter` defaults; a workflow with a fixed list of linters may not enable it.
+- Terms that `NATURAL_LANGUAGE` rejected, with the wording that passes: `Code Base` (write `codebase`), `linter warning` (write `linting warning`), `file name` and `file names` (write `filename` and `filenames`), `lint rule` (write `linter rule`), `host names` (write `hostnames`), and lowercase `bash` in running text (write `Bash`).
+- It also rejected all-capitals `Ansible` or `EditorConfig` and plain-text tool names that look like product names: put the names of linters and tools in code spans, and quote a rejected term only inside a code span.
+- `yamllint` only warns with the `Super-Linter` defaults (line length over 80, spaces inside braces, indentation), and `Prettier` decides the YAML style, so do not fix these warnings by hand.
 
 ## Setup instruction backups and private explicit loaders
 
